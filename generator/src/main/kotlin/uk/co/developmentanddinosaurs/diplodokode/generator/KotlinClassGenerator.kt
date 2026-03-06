@@ -17,16 +17,16 @@ class KotlinClassGenerator {
 
     val constructorParams =
         schema.properties?.entries?.map { (propName, propValue) ->
-          val isRequired = schema.required?.contains(propName) ?: false
-          val kotlinType = mapTypeToKotlin(propValue.type, isRequired)
+          val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+          val kotlinType = mapTypeToKotlin(propValue.type, isNullable)
           val propertyName = propName.replaceFirstChar { it.lowercase() }
 
           ParameterSpec.builder(propertyName, kotlinType).build()
         } ?: emptyList()
 
     val properties = schema.properties?.entries?.map { (propName, propValue) ->
-      val isRequired = schema.required?.contains(propName) ?: false
-      val kotlinType = mapTypeToKotlin(propValue.type, isRequired)
+      val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+      val kotlinType = mapTypeToKotlin(propValue.type, isNullable)
       val propertyName = propName.replaceFirstChar { it.lowercase() }
 
       val propertyBuilder =
@@ -53,7 +53,7 @@ class KotlinClassGenerator {
       .build()
   }
 
-  private fun mapTypeToKotlin(openApiType: String?, isRequired: Boolean): TypeName {
+  private fun mapTypeToKotlin(openApiType: String?, isNullable: Boolean): TypeName {
     val baseType =
         when (openApiType) {
           "string" -> String::class.asTypeName()
@@ -65,6 +65,6 @@ class KotlinClassGenerator {
           else -> String::class.asTypeName()
         }
 
-    return if (isRequired) baseType else baseType.copy(nullable = true)
+    return if (isNullable) baseType.copy(nullable = true) else baseType
   }
 }

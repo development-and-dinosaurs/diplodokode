@@ -103,6 +103,29 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a required nullable property") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name", "tag"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "tag" to Schema(type = "string", nullable = true),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateDataClass("Dinosaur", schema).toString()
+
+      Then("the required non-nullable field should be non-nullable") {
+        code shouldContain "val name: String"
+      }
+
+      Then("the required nullable field should be nullable") {
+        code shouldContain "val tag: String?"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 

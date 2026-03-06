@@ -68,6 +68,24 @@ class OpenApiSpecParserTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec file with a nullable property") {
+    val specFile = File("src/test/resources/nullable-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("it should parse nullable as true for the nullable property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["tag"]!!.nullable shouldBe true
+      }
+
+      Then("it should parse nullable as null for a non-nullable property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["name"]!!.nullable shouldBe null
+      }
+    }
+  }
+
   Given("an OpenAPI spec file with no components") {
     val specFile = File("src/test/resources/no-components-api.yaml")
 

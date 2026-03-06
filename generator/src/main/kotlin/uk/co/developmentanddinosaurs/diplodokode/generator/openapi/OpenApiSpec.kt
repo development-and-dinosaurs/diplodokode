@@ -19,4 +19,5 @@ data class Schema(
   val required: List<String>? = null,
   val description: String? = null,
   val properties: Map<String, Schema>? = null,
+  val nullable: Boolean? = null,
 )
