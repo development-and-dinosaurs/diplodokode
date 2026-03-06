@@ -11,8 +11,7 @@ class DiplodokodeGenerator {
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
     return openApiSpec.components?.schemas?.map { (name, schema) ->
-      if (!schema.enum.isNullOrEmpty()) classGenerator.generateTopLevelEnum(name, schema)
-      else classGenerator.generateDataClass(name, schema)
+      classGenerator.generateFromSchema(name, schema)
     } ?: emptyList()
   }
 }

@@ -22,7 +22,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val fileSpec = generator.generateDataClass("Dinosaur", schema)
+      val fileSpec = generator.generateFromSchema("Dinosaur", schema)
       val code = fileSpec.toString()
 
       Then("it should generate a data class with the correct name") {
@@ -57,7 +57,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Types", schema).toString()
+      val code = generator.generateFromSchema("Types", schema).toString()
 
       Then("it should map each type to the correct Kotlin type") {
         code shouldContain "val str: String"
@@ -80,7 +80,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Dinosaur", schema).toString()
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
       Then("it should emit descriptions as KDoc") {
         code shouldContain "/**"
@@ -93,7 +93,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     val schema = Schema(type = "object")
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Empty", schema).toString()
+      val code = generator.generateFromSchema("Empty", schema).toString()
 
       Then("it should generate an empty data class") {
         code shouldContain "data class Empty"
@@ -114,7 +114,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Dinosaur", schema).toString()
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
       Then("the required non-nullable field should be non-nullable") {
         code shouldContain "val name: String"
@@ -138,7 +138,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Dinosaur", schema).toString()
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
       Then("it should generate an enum class for the required enum property") {
         code shouldContain "enum class Diet"
@@ -175,7 +175,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("Dinosaur", schema).toString()
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
       Then("the required ref property should use the referenced type") {
         code shouldContain "val diet: Diet"
@@ -195,7 +195,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     )
 
     When("the generator produces a top-level enum") {
-      val code = generator.generateTopLevelEnum("Diet", schema).toString()
+      val code = generator.generateFromSchema("Diet", schema).toString()
 
       Then("it should generate an enum class") {
         code shouldContain "enum class Diet"
@@ -212,7 +212,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     val schema = Schema(type = "object")
 
     When("the generator produces a data class") {
-      val code = generator.generateDataClass("dinosaur", schema).toString()
+      val code = generator.generateFromSchema("dinosaur", schema).toString()
 
       Then("it should capitalise the class name") {
         code shouldContain "data class Dinosaur"

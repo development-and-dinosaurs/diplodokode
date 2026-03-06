@@ -15,7 +15,11 @@ private const val PACKAGE = "uk.co.developmentanddinosaurs.diplodokode.generated
 
 class KotlinClassGenerator {
 
-  fun generateDataClass(name: String, schema: Schema): FileSpec {
+  fun generateFromSchema(name: String, schema: Schema): FileSpec =
+      if (!schema.enum.isNullOrEmpty()) generateTopLevelEnum(name, schema)
+      else generateDataClass(name, schema)
+
+  private fun generateDataClass(name: String, schema: Schema): FileSpec {
     val className = name.replaceFirstChar { it.uppercase() }
     val fileBuilder = FileSpec.builder(PACKAGE, className)
 
@@ -65,7 +69,7 @@ class KotlinClassGenerator {
     return fileBuilder.addType(dataClass).build()
   }
 
-  fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
+  private fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
     val enumName = name.replaceFirstChar { it.uppercase() }
     return FileSpec.builder(PACKAGE, enumName)
         .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
