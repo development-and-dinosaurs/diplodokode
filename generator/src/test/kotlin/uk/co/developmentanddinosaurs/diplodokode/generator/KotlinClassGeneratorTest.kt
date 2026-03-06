@@ -163,6 +163,51 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given($$"a schema with a $ref property") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name", "diet"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "diet" to Schema(ref = "#/components/schemas/Diet"),
+        "favouritePrey" to Schema(ref = "#/components/schemas/Dinosaur"),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateDataClass("Dinosaur", schema).toString()
+
+      Then("the required ref property should use the referenced type") {
+        code shouldContain "val diet: Diet"
+        code shouldNotContain "val diet: Diet?"
+      }
+
+      Then("the optional ref property should be nullable") {
+        code shouldContain "val favouritePrey: Dinosaur?"
+      }
+    }
+  }
+
+  Given("a top-level enum schema") {
+    val schema = Schema(
+      type = "string",
+      enum = listOf("carnivore", "herbivore"),
+    )
+
+    When("the generator produces a top-level enum") {
+      val code = generator.generateTopLevelEnum("Diet", schema).toString()
+
+      Then("it should generate an enum class") {
+        code shouldContain "enum class Diet"
+      }
+
+      Then("it should uppercase the enum values") {
+        code shouldContain "CARNIVORE"
+        code shouldContain "HERBIVORE"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 

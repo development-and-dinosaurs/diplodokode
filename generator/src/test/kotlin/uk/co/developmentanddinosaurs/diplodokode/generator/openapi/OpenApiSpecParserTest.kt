@@ -104,6 +104,24 @@ class OpenApiSpecParserTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec file with a \$ref property") {
+    val specFile = File("src/test/resources/ref-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("it should parse the ref for the ref property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["diet"]!!.ref shouldBe "#/components/schemas/Diet"
+      }
+
+      Then("it should parse null ref for a non-ref property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["name"]!!.ref shouldBe null
+      }
+    }
+  }
+
   Given("an OpenAPI spec file with no components") {
     val specFile = File("src/test/resources/no-components-api.yaml")
 

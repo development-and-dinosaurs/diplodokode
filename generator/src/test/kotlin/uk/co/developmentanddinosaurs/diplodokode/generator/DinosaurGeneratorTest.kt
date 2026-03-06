@@ -46,6 +46,29 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
   
+  Given("an OpenAPI spec with a top-level enum and a \$ref property") {
+    val openApiSpec = File("src/test/resources/ref-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("it should generate a file for each schema") {
+        generatedFiles shouldHaveSize 2
+      }
+
+      Then("it should generate the top-level enum as an enum class") {
+        val dietFile = generatedFiles.find { it.name == "Diet" }
+        dietFile shouldNotBe null
+        dietFile.toString() shouldContain "enum class Diet"
+      }
+
+      Then("it should resolve the \$ref to the correct Kotlin type") {
+        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
+        dinosaurFile.toString() shouldContain "val diet: Diet"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

@@ -1,5 +1,6 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator.openapi
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 
@@ -21,4 +22,5 @@ data class Schema(
   val properties: Map<String, Schema>? = null,
   val nullable: Boolean? = null,
   val enum: List<String>? = null,
+  @SerialName($$"$ref") val ref: String? = null,
 )

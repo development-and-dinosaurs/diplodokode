@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Ref API
+  version: 1.0.0
+
+components:
+  schemas:
+    Diet:
+      type: string
+      enum:
+        - carnivore
+        - herbivore
+    Dinosaur:
+      type: object
+      required:
+        - name
+        - diet
+      properties:
+        name:
+          type: string
+          description: The name of the dinosaur
+        diet:
+          $ref: '#/components/schemas/Diet'
+        favouritePrey:
+          type: string
+          description: The name of the dinosaur's favourite prey

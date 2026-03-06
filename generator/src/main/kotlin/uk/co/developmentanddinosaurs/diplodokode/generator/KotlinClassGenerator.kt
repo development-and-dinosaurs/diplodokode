@@ -65,6 +65,13 @@ class KotlinClassGenerator {
     return fileBuilder.addType(dataClass).build()
   }
 
+  fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
+    val enumName = name.replaceFirstChar { it.uppercase() }
+    return FileSpec.builder(PACKAGE, enumName)
+        .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
+        .build()
+  }
+
   private fun generateEnumClass(name: String, values: List<String>): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
     values.forEach { enumBuilder.addEnumConstant(it.uppercase()) }
@@ -77,7 +84,11 @@ class KotlinClassGenerator {
       isNullable: Boolean,
       enumClassNames: Map<String, ClassName>,
   ): TypeName {
-    val baseType = enumClassNames[propName] ?: mapTypeToKotlin(propValue.type)
+    val baseType =
+        when {
+          propValue.ref != null -> ClassName(PACKAGE, propValue.ref.substringAfterLast("/"))
+          else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type)
+        }
     return if (isNullable) baseType.copy(nullable = true) else baseType
   }
 
