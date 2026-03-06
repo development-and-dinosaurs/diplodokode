@@ -1,0 +1,82 @@
+package uk.co.developmentanddinosaurs.diplodokode.generator.openapi
+
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import java.io.File
+
+class OpenApiSpecParserTest : BehaviorSpec({
+
+  val parser = OpenApiSpecParser()
+
+  Given("an OpenAPI spec file with schemas") {
+    val specFile = File("src/test/resources/dinosaur-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("it should populate the components") {
+        spec.components.shouldNotBeNull()
+      }
+
+      Then("it should parse the correct number of schemas") {
+        spec.components!!.schemas!!.size shouldBe 1
+      }
+
+      Then("it should parse the schema by name") {
+        spec.components!!.schemas!!.keys shouldContain "Dinosaur"
+      }
+
+      Then("it should parse the required fields") {
+        val schema = spec.components!!.schemas!!["Dinosaur"]!!
+        schema.required!! shouldBe listOf("name", "species", "age")
+      }
+
+      Then("it should parse properties with their types") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["name"]!!.type shouldBe "string"
+        properties["age"]!!.type shouldBe "integer"
+        properties["weight"]!!.type shouldBe "number"
+        properties["isCarnivore"]!!.type shouldBe "boolean"
+      }
+
+      Then("it should parse property descriptions") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["name"]!!.description shouldBe "The name of the dinosaur"
+        properties["weight"]!!.description shouldBe "The weight of the dinosaur in kilograms"
+      }
+    }
+  }
+
+  Given("an OpenAPI spec file with an empty schema") {
+    val specFile = File("src/test/resources/empty-class-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("it should parse the schema with no properties") {
+        val schema = spec.components!!.schemas!!["EmptyDinosaur"]!!
+        schema.properties!!.size shouldBe 0
+      }
+
+      Then("it should parse the schema with no required fields") {
+        val schema = spec.components!!.schemas!!["EmptyDinosaur"]!!
+        schema.required!!.size shouldBe 0
+      }
+    }
+  }
+
+  Given("an OpenAPI spec file with no components") {
+    val specFile = File("src/test/resources/no-components-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("components should be null") {
+        spec.components.shouldBeNull()
+      }
+    }
+  }
+})

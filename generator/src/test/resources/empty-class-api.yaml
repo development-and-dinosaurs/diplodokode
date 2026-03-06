@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: Empty Class API
+  version: 1.0.0
+  description: API with empty schema
+
+components:
+  schemas:
+    EmptyDinosaur:
+      type: object
+      properties: {}
+      required: []
+
+paths:
+  /empty-dinosaurs:
+    get:
+      summary: Get empty dinosaur
+      responses:
+        '200':
+          description: An empty dinosaur

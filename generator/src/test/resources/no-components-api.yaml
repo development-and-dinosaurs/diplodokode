@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: No Components API
+  version: 1.0.0
+
+paths:
+  /empty:
+    get:
+      summary: An endpoint with no schemas
+      responses:
+        '204':
+          description: No content

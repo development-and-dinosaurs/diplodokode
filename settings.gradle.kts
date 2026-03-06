@@ -8,3 +8,6 @@ pluginManagement {
     mavenCentral()
   }
 }
+
+include(":generator")
+project(":generator").name = "diplodokode-generator"
