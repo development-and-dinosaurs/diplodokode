@@ -11,3 +11,7 @@ pluginManagement {
 
 include(":generator")
 project(":generator").name = "diplodokode-generator"
+
+include(":plugin")
+project(":plugin").name = "diplodokode-plugin"
+
