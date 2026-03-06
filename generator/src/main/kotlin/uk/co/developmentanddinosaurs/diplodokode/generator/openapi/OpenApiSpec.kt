@@ -20,4 +20,5 @@ data class Schema(
   val description: String? = null,
   val properties: Map<String, Schema>? = null,
   val nullable: Boolean? = null,
+  val enum: List<String>? = null,
 )

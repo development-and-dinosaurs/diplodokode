@@ -126,6 +126,43 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with an enum property") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name", "diet"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "diet" to Schema(type = "string", enum = listOf("carnivore", "herbivore")),
+        "favouritePrey" to Schema(type = "string", enum = listOf("triceratops", "brachiosaurus")),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateDataClass("Dinosaur", schema).toString()
+
+      Then("it should generate an enum class for the required enum property") {
+        code shouldContain "enum class Diet"
+        code shouldContain "CARNIVORE"
+        code shouldContain "HERBIVORE"
+      }
+
+      Then("it should generate an enum class for the optional enum property") {
+        code shouldContain "enum class FavouritePrey"
+        code shouldContain "TRICERATOPS"
+        code shouldContain "BRACHIOSAURUS"
+      }
+
+      Then("the required enum property should be non-nullable") {
+        code shouldContain "val diet: Diet"
+        code shouldNotContain "val diet: Diet?"
+      }
+
+      Then("the optional enum property should be nullable") {
+        code shouldContain "val favouritePrey: FavouritePrey?"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 

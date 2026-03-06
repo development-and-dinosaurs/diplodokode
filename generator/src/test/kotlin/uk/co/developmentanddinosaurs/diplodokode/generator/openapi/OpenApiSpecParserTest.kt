@@ -86,6 +86,24 @@ class OpenApiSpecParserTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec file with enum properties") {
+    val specFile = File("src/test/resources/enum-api.yaml")
+
+    When("the parser reads the file") {
+      val spec = parser.parse(specFile)
+
+      Then("it should parse enum values for an enum property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["diet"]!!.enum shouldBe listOf("carnivore", "herbivore")
+      }
+
+      Then("it should parse null enum for a non-enum property") {
+        val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
+        properties["name"]!!.enum shouldBe null
+      }
+    }
+  }
+
   Given("an OpenAPI spec file with no components") {
     val specFile = File("src/test/resources/no-components-api.yaml")
 
