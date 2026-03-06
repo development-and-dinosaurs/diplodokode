@@ -1,8 +1,11 @@
+import com.vanniktech.maven.publish.DeploymentValidation
+
 plugins {
   `java-gradle-plugin`
+  alias(libs.plugins.vanniktech.maven.publish)
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.kotlin.serialization)
-  alias(libs.plugins.vanniktech.maven.publish)
+  id("diplodokode.publishing")
 }
 
 gradlePlugin {
@@ -28,3 +31,15 @@ dependencies {
 }
 
 tasks.test { useJUnitPlatform() }
+
+mavenPublishing {
+  publishToMavenCentral(
+      automaticRelease = true,
+      validateDeployment = DeploymentValidation.PUBLISHED,
+  )
+  signAllPublications()
+  pom {
+    name.set("Diplodokode Gradle Plugin")
+    description.set("Generate roarsome Kotlin models from an OpenAPI specification file with ease")
+  }
+}
