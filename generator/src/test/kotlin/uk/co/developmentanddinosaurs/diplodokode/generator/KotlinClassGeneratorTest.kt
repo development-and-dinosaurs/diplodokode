@@ -247,6 +247,67 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with an array of arrays") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("matrix", "table"),
+      properties = mapOf(
+        "matrix" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "integer")),
+        ),
+        "table" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "string")),
+        ),
+        "deeplyNested" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "array", items = Schema(type = "boolean"))),
+        ),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Grid", schema).toString()
+
+      Then("array of array of integers should be List<List<Int>>") {
+        code shouldContain "val matrix: List<List<Int>>"
+      }
+
+      Then("array of array of strings should be List<List<String>>") {
+        code shouldContain "val table: List<List<String>>"
+      }
+
+      Then("three levels of nesting should be List<List<List<Boolean>>>") {
+        code shouldContain "val deeplyNested: List<List<List<Boolean>>>?"
+      }
+    }
+  }
+
+  Given("a schema with an array of enum refs") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("diets"),
+      properties = mapOf(
+        "diets" to Schema(type = "array", items = Schema(ref = "#/components/schemas/Diet")),
+        "preyTypes" to Schema(type = "array", items = Schema(ref = "#/components/schemas/PreyType")),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("required array of enum refs should be List<Diet>") {
+        code shouldContain "val diets: List<Diet>"
+        code shouldNotContain "val diets: List<Diet>?"
+      }
+
+      Then("optional array of enum refs should be nullable List<PreyType>") {
+        code shouldContain "val preyTypes: List<PreyType>?"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 

@@ -104,6 +104,10 @@ class KotlinClassGenerator {
   private fun resolveItemType(items: Schema): TypeName =
       when {
         items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
+        items.type == "array" -> {
+          val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+          List::class.asTypeName().parameterizedBy(elementType)
+        }
         else -> mapTypeToKotlin(items.type, items.format)
       }
 
