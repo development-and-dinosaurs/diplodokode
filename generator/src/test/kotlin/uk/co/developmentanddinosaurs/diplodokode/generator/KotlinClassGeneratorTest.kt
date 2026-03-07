@@ -258,4 +258,78 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a schema with format-mapped properties") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("id", "createdAt", "birthDate", "startTime", "timeout",
+        "avatar", "attachment", "endpoint", "externalId", "score"),
+      properties = mapOf(
+        "id" to Schema(type = "string", format = "uuid"),
+        "createdAt" to Schema(type = "string", format = "date-time"),
+        "birthDate" to Schema(type = "string", format = "date"),
+        "startTime" to Schema(type = "string", format = "time"),
+        "timeout" to Schema(type = "string", format = "duration"),
+        "avatar" to Schema(type = "string", format = "byte"),
+        "attachment" to Schema(type = "string", format = "binary"),
+        "endpoint" to Schema(type = "string", format = "uri"),
+        "externalId" to Schema(type = "integer", format = "int64"),
+        "score" to Schema(type = "number", format = "float"),
+        "name" to Schema(type = "string"),
+        "count" to Schema(type = "integer"),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("uuid format maps to UUID") {
+        code shouldContain "val id: UUID"
+      }
+
+      Then("date-time format maps to Instant") {
+        code shouldContain "val createdAt: Instant"
+      }
+
+      Then("date format maps to LocalDate") {
+        code shouldContain "val birthDate: LocalDate"
+      }
+
+      Then("time format maps to LocalTime") {
+        code shouldContain "val startTime: LocalTime"
+      }
+
+      Then("duration format maps to Duration") {
+        code shouldContain "val timeout: Duration"
+      }
+
+      Then("byte format maps to ByteArray") {
+        code shouldContain "val avatar: ByteArray"
+      }
+
+      Then("binary format maps to ByteArray") {
+        code shouldContain "val attachment: ByteArray"
+      }
+
+      Then("uri format maps to URI") {
+        code shouldContain "val endpoint: URI"
+      }
+
+      Then("int64 format maps to Long") {
+        code shouldContain "val externalId: Long"
+      }
+
+      Then("float format maps to Float") {
+        code shouldContain "val score: Float"
+      }
+
+      Then("plain string without format stays String") {
+        code shouldContain "val name: String?"
+      }
+
+      Then("plain integer without format stays Int") {
+        code shouldContain "val count: Int?"
+      }
+    }
+  }
 })

@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Format API
+  version: 1.0.0
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        birthDate:
+          type: string
+          format: date
+        populationCount:
+          type: integer
+          format: int64
+        name:
+          type: string
+        age:
+          type: integer
+      required:
+        - id
+        - createdAt
+        - birthDate
+        - populationCount
+        - name

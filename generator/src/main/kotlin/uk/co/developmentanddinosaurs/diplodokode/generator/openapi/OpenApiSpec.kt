@@ -19,6 +19,7 @@ data class Schema(
   @SerialName($$"$ref") val ref: String? = null,
   val description: String? = null,
   val enum: List<String>? = null,
+  val format: String? = null,
   val items: Schema? = null,
   val nullable: Boolean? = null,
   val properties: Map<String, Schema>? = null,

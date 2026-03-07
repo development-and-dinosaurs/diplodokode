@@ -91,6 +91,31 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with format-mapped properties") {
+    val openApiSpec = File("src/test/resources/format-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+      val code = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+
+      Then("uuid format maps to UUID") {
+        code shouldContain "val id: UUID"
+      }
+
+      Then("date-time format maps to Instant") {
+        code shouldContain "val createdAt: Instant"
+      }
+
+      Then("date format maps to LocalDate") {
+        code shouldContain "val birthDate: LocalDate"
+      }
+
+      Then("int64 format maps to Long") {
+        code shouldContain "val populationCount: Long"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

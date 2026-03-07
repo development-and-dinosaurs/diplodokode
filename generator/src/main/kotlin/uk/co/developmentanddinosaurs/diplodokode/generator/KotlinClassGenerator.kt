@@ -96,7 +96,7 @@ class KotlinClassGenerator {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
           }
-          else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type)
+          else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type, propValue.format)
         }
     return if (isNullable) baseType.copy(nullable = true) else baseType
   }
@@ -104,17 +104,41 @@ class KotlinClassGenerator {
   private fun resolveItemType(items: Schema): TypeName =
       when {
         items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
-        else -> mapTypeToKotlin(items.type)
+        else -> mapTypeToKotlin(items.type, items.format)
       }
 
-  private fun mapTypeToKotlin(openApiType: String?): TypeName =
-      when (openApiType) {
-        "string" -> String::class.asTypeName()
-        "integer" -> Int::class.asTypeName()
-        "number" -> Double::class.asTypeName()
-        "boolean" -> Boolean::class.asTypeName()
-        "array" -> List::class.asTypeName()
-        "object" -> Any::class.asTypeName()
-        else -> String::class.asTypeName()
-      }
+  private fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
+      formatMappings[openApiType]?.get(format)
+          ?: baseMappings[openApiType]
+          ?: String::class.asTypeName()
+
+  companion object {
+    private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
+        "string" to mapOf(
+            "date-time" to java.time.Instant::class.asTypeName(),
+            "date"      to java.time.LocalDate::class.asTypeName(),
+            "time"      to java.time.LocalTime::class.asTypeName(),
+            "duration"  to java.time.Duration::class.asTypeName(),
+            "uuid"      to java.util.UUID::class.asTypeName(),
+            "uri"       to java.net.URI::class.asTypeName(),
+            "byte"      to ByteArray::class.asTypeName(),
+            "binary"    to ByteArray::class.asTypeName(),
+        ),
+        "integer" to mapOf(
+            "int64" to Long::class.asTypeName(),
+        ),
+        "number" to mapOf(
+            "float" to Float::class.asTypeName(),
+        ),
+    )
+
+    private val baseMappings: Map<String, TypeName> = mapOf(
+        "string"  to String::class.asTypeName(),
+        "integer" to Int::class.asTypeName(),
+        "number"  to Double::class.asTypeName(),
+        "boolean" to Boolean::class.asTypeName(),
+        "array"   to List::class.asTypeName(),
+        "object"  to Any::class.asTypeName(),
+    )
+  }
 }
