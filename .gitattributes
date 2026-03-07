@@ -1,0 +1,21 @@
+# Default: normalise all text files to LF in the repo and on checkout
+* text=auto eol=lf
+
+# Shell scripts must always be LF
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Windows batch files must be CRLF
+*.bat text eol=crlf
+gradlew.bat text eol=crlf
+
+# Explicitly mark binary files so git never mangles them
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
