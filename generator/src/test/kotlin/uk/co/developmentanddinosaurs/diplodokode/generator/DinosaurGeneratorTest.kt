@@ -152,6 +152,38 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with oneOf schemas") {
+    val openApiSpec = File("src/test/resources/oneof-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("it should generate a file for each schema") {
+        generatedFiles shouldHaveSize 3
+      }
+
+      Then("the parent schema should be a sealed interface") {
+        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
+        dinosaurFile.toString() shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("the sealed interface should have a discriminator property") {
+        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
+        dinosaurFile.toString() shouldContain "val type: String"
+      }
+
+      Then("each variant should be a data class implementing the sealed interface") {
+        val tyrannosaurFile = generatedFiles.find { it.name == "Tyrannosaur" }!!
+        tyrannosaurFile.toString() shouldContain "data class Tyrannosaur"
+        tyrannosaurFile.toString() shouldContain ": Dinosaur"
+
+        val triceratopsFile = generatedFiles.find { it.name == "Triceratops" }!!
+        triceratopsFile.toString() shouldContain "data class Triceratops"
+        triceratopsFile.toString() shouldContain ": Dinosaur"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

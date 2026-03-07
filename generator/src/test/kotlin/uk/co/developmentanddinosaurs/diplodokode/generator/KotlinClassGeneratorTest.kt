@@ -420,6 +420,81 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with oneOf variants") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should generate a sealed interface") {
+        code shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("it should not generate a data class") {
+        code shouldNotContain "data class"
+      }
+    }
+  }
+
+  Given("a schema with oneOf and a discriminator") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      ),
+      discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should add a property for the discriminator") {
+        code shouldContain "val type: String"
+      }
+    }
+  }
+
+  Given("a schema with oneOf inline variants") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should emit a KDoc note about unsupported inline variants") {
+        code shouldContain "NOTE: Inline oneOf variants are not supported"
+      }
+    }
+  }
+
+  Given("a data class schema that implements a sealed interface") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("armLength"),
+      properties = mapOf("armLength" to Schema(type = "number")),
+    )
+
+    When("the generator produces a data class with an implemented interface") {
+      val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur")).toString()
+
+      Then("it should implement the interface") {
+        code shouldContain ": Dinosaur"
+      }
+
+      Then("it should still be a data class") {
+        code shouldContain "data class Tyrannosaur"
+      }
+    }
+  }
+
   Given("a schema with an array of uuid items") {
     val schema = Schema(
       type = "object",

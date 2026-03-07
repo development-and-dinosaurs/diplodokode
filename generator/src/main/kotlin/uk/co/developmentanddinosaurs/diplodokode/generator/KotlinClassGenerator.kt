@@ -17,11 +17,43 @@ private const val PACKAGE = "uk.co.developmentanddinosaurs.diplodokode.generated
 
 class KotlinClassGenerator {
 
-  fun generateFromSchema(name: String, schema: Schema): FileSpec =
-      if (!schema.enum.isNullOrEmpty()) generateTopLevelEnum(name, schema)
-      else generateDataClass(name, schema)
+  fun generateFromSchema(
+      name: String,
+      schema: Schema,
+      implementedInterfaces: List<String> = emptyList(),
+  ): FileSpec =
+      when {
+        !schema.enum.isNullOrEmpty() -> generateTopLevelEnum(name, schema)
+        !schema.oneOf.isNullOrEmpty() -> generateSealedInterface(name, schema)
+        else -> generateDataClass(name, schema, implementedInterfaces)
+      }
 
-  private fun generateDataClass(name: String, schema: Schema): FileSpec {
+  private fun generateSealedInterface(name: String, schema: Schema): FileSpec {
+    val interfaceName = name.replaceFirstChar { it.uppercase() }
+    val interfaceBuilder =
+        TypeSpec.interfaceBuilder(interfaceName)
+            .addModifiers(KModifier.SEALED)
+
+    schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
+
+    schema.discriminator?.let { disc ->
+      interfaceBuilder.addProperty(
+          PropertySpec.builder(disc.propertyName, String::class)
+              .addModifiers(KModifier.ABSTRACT)
+              .build()
+      )
+    }
+
+    schema.oneOf?.filter { it.ref == null }?.takeIf { it.isNotEmpty() }?.let {
+      interfaceBuilder.addKdoc(
+          "NOTE: Inline oneOf variants are not supported. Define variants as \$ref schemas.\n"
+      )
+    }
+
+    return FileSpec.builder(PACKAGE, interfaceName).addType(interfaceBuilder.build()).build()
+  }
+
+  private fun generateDataClass(name: String, schema: Schema, implementedInterfaces: List<String> = emptyList()): FileSpec {
     val className = name.replaceFirstChar { it.uppercase() }
     val fileBuilder = FileSpec.builder(PACKAGE, className)
 
@@ -75,14 +107,17 @@ class KotlinClassGenerator {
           propertyBuilder.build()
         } ?: emptyList()
 
-    val dataClass =
+    val dataClassBuilder =
         TypeSpec.classBuilder(className)
             .addModifiers(KModifier.DATA)
             .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
             .addProperties(properties)
-            .build()
 
-    return fileBuilder.addType(dataClass).build()
+    implementedInterfaces.forEach { iface ->
+      dataClassBuilder.addSuperinterface(ClassName(PACKAGE, iface))
+    }
+
+    return fileBuilder.addType(dataClassBuilder.build()).build()
   }
 
   private fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {

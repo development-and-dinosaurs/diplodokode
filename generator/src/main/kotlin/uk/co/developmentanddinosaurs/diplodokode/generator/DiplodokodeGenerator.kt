@@ -12,9 +12,9 @@ class DiplodokodeGenerator {
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
     val schemas = openApiSpec.components?.schemas ?: return emptyList()
-    val resolvedSchemas = resolver.resolve(schemas)
+    val (resolvedSchemas, implementedInterfaces) = resolver.resolve(schemas)
     return resolvedSchemas.map { (name, schema) ->
-      classGenerator.generateFromSchema(name, schema)
+      classGenerator.generateFromSchema(name, schema, implementedInterfaces[name] ?: emptyList())
     }
   }
 }

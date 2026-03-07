@@ -1,6 +1,7 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.maps.shouldContainKey
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -18,7 +19,7 @@ class SchemaResolverTest : BehaviorSpec({
       val resolved = resolver.resolve(schemas)
 
       Then("it returns the schema unchanged") {
-        resolved["Dinosaur"] shouldBe schema
+        resolved.schemas["Dinosaur"] shouldBe schema
       }
     }
   }
@@ -43,7 +44,7 @@ class SchemaResolverTest : BehaviorSpec({
 
     When("the resolver processes the schemas") {
       val resolved = resolver.resolve(schemas)
-      val schema = resolved["ExtendedDinosaur"].shouldNotBeNull()
+      val schema = resolved.schemas["ExtendedDinosaur"].shouldNotBeNull()
 
       Then("it produces an object schema") {
         schema.type shouldBe "object"
@@ -85,7 +86,7 @@ class SchemaResolverTest : BehaviorSpec({
 
     When("the resolver processes the schemas") {
       val resolved = resolver.resolve(schemas)
-      val schema = resolved["ExtendedDinosaur"].shouldNotBeNull()
+      val schema = resolved.schemas["ExtendedDinosaur"].shouldNotBeNull()
 
       Then("it resolves the ref and merges its properties") {
         schema.properties!! shouldContainKey "name"
@@ -110,7 +111,7 @@ class SchemaResolverTest : BehaviorSpec({
 
     When("the resolver processes the schemas") {
       val resolved = resolver.resolve(schemas)
-      val schema = resolved["Thing"].shouldNotBeNull()
+      val schema = resolved.schemas["Thing"].shouldNotBeNull()
 
       Then("it deduplicates required fields") {
         schema.required shouldBe listOf("id", "name")
@@ -130,10 +131,85 @@ class SchemaResolverTest : BehaviorSpec({
 
     When("the resolver processes the schemas") {
       val resolved = resolver.resolve(schemas)
-      val schema = resolved["Thing"].shouldNotBeNull()
+      val schema = resolved.schemas["Thing"].shouldNotBeNull()
 
       Then("it skips the unresolvable ref and merges what it can") {
         schema.properties!! shouldContainKey "name"
+      }
+    }
+  }
+
+  Given("a schema with a cyclic allOf reference") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+            )
+        ),
+        "Tyrannosaur" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Dinosaur"),
+                Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+            )
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("it does not loop infinitely") {
+        resolved.schemas shouldContainKey "Tyrannosaur"
+      }
+
+      Then("it merges what it can from the non-cyclic parts") {
+        resolved.schemas["Tyrannosaur"]?.properties!! shouldContainKey "armLength"
+      }
+    }
+  }
+
+  Given("a schema with oneOf variants") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+                Schema(ref = "#/components/schemas/Triceratops"),
+            )
+        ),
+        "Tyrannosaur" to Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+        "Triceratops" to Schema(type = "object", properties = mapOf("hornCount" to Schema(type = "integer"))),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("Tyrannosaur is mapped to implement Dinosaur") {
+        resolved.implementedInterfaces["Tyrannosaur"]!! shouldContain "Dinosaur"
+      }
+
+      Then("Triceratops is mapped to implement Dinosaur") {
+        resolved.implementedInterfaces["Triceratops"]!! shouldContain "Dinosaur"
+      }
+
+      Then("Dinosaur itself has no implemented interfaces") {
+        resolved.implementedInterfaces["Dinosaur"] shouldBe null
+      }
+    }
+  }
+
+  Given("a schema with oneOf inline variants") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+            )
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("no interface mappings are produced for inline variants") {
+        resolved.implementedInterfaces.isEmpty() shouldBe true
       }
     }
   }
