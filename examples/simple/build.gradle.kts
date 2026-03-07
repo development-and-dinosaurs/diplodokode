@@ -16,6 +16,9 @@ diplodokode {
   outputDir.set("build/generated/kotlin")
 }
 
+tasks.matching { it.name.startsWith("compile") && it.name.contains("Kotlin") }
+    .configureEach { dependsOn("generateDiplodokode") }
+
 repositories {
   mavenCentral()
 }

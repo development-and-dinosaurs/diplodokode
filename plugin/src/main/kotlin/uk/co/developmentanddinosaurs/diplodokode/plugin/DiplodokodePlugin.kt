@@ -16,15 +16,9 @@ class DiplodokodePlugin : Plugin<Project> {
       task.outputDir.set(extension.outputDir.map { project.layout.projectDirectory.dir(it) })
     }
 
-    project.pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
-      project.tasks.named("compileKotlin") { it.dependsOn(generateTask) }
-    }
-
     project.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
       val kotlin = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
       kotlin.sourceSets.getByName("commonMain").kotlin.srcDir(generateTask.flatMap { it.outputDir })
-      project.tasks.matching { t -> t.name.startsWith("compile") && t.name.contains("Kotlin") }
-          .configureEach { it.dependsOn(generateTask) }
     }
   }
 }
