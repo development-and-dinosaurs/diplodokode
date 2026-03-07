@@ -98,8 +98,8 @@ class DinosaurGeneratorTest : BehaviorSpec({
       val generatedFiles = generator.generateFromSpec(openApiSpec)
       val code = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
 
-      Then("uuid format maps to UUID") {
-        code shouldContain "val id: UUID"
+      Then("uuid format maps to Uuid") {
+        code shouldContain "val id: Uuid"
       }
 
       Then("date-time format maps to Instant") {

@@ -25,7 +25,7 @@ dependencies {
   implementation(project(":diplodokode-generator"))
   implementation(kotlin("stdlib"))
   implementation(libs.kotlinpoet)
-  
+
   testImplementation(libs.kotest.runner.junit5)
   testImplementation(libs.kotest.assertions.core)
 }

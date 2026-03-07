@@ -366,8 +366,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a data class") {
       val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
-      Then("uuid format maps to UUID") {
-        code shouldContain "val id: UUID"
+      Then("uuid format maps to Uuid") {
+        code shouldContain "val id: Uuid"
       }
 
       Then("date-time format maps to Instant") {
@@ -394,8 +394,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         code shouldContain "val attachment: ByteArray"
       }
 
-      Then("uri format maps to URI") {
-        code shouldContain "val endpoint: URI"
+      Then("uri format maps to String") {
+        code shouldContain "val endpoint: String"
       }
 
       Then("int64 format maps to Long") {
@@ -412,6 +412,31 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("plain integer without format stays Int") {
         code shouldContain "val count: Int?"
+      }
+
+      Then("uuid format adds OptIn annotation to the file") {
+        code shouldContain "@file:OptIn(ExperimentalUuidApi::class)"
+      }
+    }
+  }
+
+  Given("a schema with an array of uuid items") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "ids" to Schema(type = "array", items = Schema(type = "string", format = "uuid")),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should generate List<Uuid>") {
+        code shouldContain "val ids: List<Uuid>?"
+      }
+
+      Then("it should add the OptIn annotation") {
+        code shouldContain "@file:OptIn(ExperimentalUuidApi::class)"
       }
     }
   }
