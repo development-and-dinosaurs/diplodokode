@@ -57,6 +57,11 @@ class KotlinClassGenerator {
 
           propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
 
+          if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
+            val values = propValue.items.enum.joinToString(", ")
+            propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+          }
+
           propertyBuilder.build()
         } ?: emptyList()
 

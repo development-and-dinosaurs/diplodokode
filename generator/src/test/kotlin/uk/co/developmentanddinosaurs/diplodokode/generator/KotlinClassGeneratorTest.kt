@@ -284,6 +284,28 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with an array of inline enum items") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "diets" to Schema(type = "array", items = Schema(type = "string", enum = listOf("carnivore", "herbivore"))),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should fall back to List of the base type") {
+        code shouldContain "val diets: List<String>?"
+      }
+
+      Then("it should emit a KDoc note with the enum values") {
+        code shouldContain "NOTE: items have an enum constraint [carnivore, herbivore]"
+        code shouldContain "\$ref"
+      }
+    }
+  }
+
   Given("a schema with an array of enum refs") {
     val schema = Schema(
       type = "object",
