@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Array API
+  version: 1.0.0
+
+components:
+  schemas:
+    Tag:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+    Dinosaur:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the dinosaur
+        tags:
+          type: array
+          items:
+            type: string
+          description: String tags for the dinosaur
+        relatedDinosaurs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          description: Related dinosaur tags
+      required:
+        - name
+        - tags

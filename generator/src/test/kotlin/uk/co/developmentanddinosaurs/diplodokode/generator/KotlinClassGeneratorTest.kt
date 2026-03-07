@@ -208,6 +208,128 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a typed array property") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("tags", "aliases"),
+      properties = mapOf(
+        "tags" to Schema(type = "array", items = Schema(type = "string")),
+        "aliases" to Schema(type = "array", items = Schema(type = "string")),
+        "friendIds" to Schema(type = "array", items = Schema(type = "integer")),
+        "friends" to Schema(type = "array", items = Schema(ref = "#/components/schemas/Dinosaur")),
+        "rawList" to Schema(type = "array"),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("required string array should be non-nullable List<String>") {
+        code shouldContain "val tags: List<String>"
+        code shouldNotContain "val tags: List<String>?"
+      }
+
+      Then("required array should be non-nullable") {
+        code shouldContain "val aliases: List<String>"
+      }
+
+      Then("optional integer array should be nullable List<Int>") {
+        code shouldContain "val friendIds: List<Int>?"
+      }
+
+      Then("array with ref items should resolve to the referenced type") {
+        code shouldContain "val friends: List<Dinosaur>?"
+      }
+
+      Then("array without items should fall back to List<Any>") {
+        code shouldContain "val rawList: List<Any>?"
+      }
+    }
+  }
+
+  Given("a schema with an array of arrays") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("matrix", "table"),
+      properties = mapOf(
+        "matrix" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "integer")),
+        ),
+        "table" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "string")),
+        ),
+        "deeplyNested" to Schema(
+          type = "array",
+          items = Schema(type = "array", items = Schema(type = "array", items = Schema(type = "boolean"))),
+        ),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Grid", schema).toString()
+
+      Then("array of array of integers should be List<List<Int>>") {
+        code shouldContain "val matrix: List<List<Int>>"
+      }
+
+      Then("array of array of strings should be List<List<String>>") {
+        code shouldContain "val table: List<List<String>>"
+      }
+
+      Then("three levels of nesting should be List<List<List<Boolean>>>") {
+        code shouldContain "val deeplyNested: List<List<List<Boolean>>>?"
+      }
+    }
+  }
+
+  Given("a schema with an array of inline enum items") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "diets" to Schema(type = "array", items = Schema(type = "string", enum = listOf("carnivore", "herbivore"))),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should fall back to List of the base type") {
+        code shouldContain "val diets: List<String>?"
+      }
+
+      Then("it should emit a KDoc note with the enum values") {
+        code shouldContain "NOTE: items have an enum constraint [carnivore, herbivore]"
+        code shouldContain "\$ref"
+      }
+    }
+  }
+
+  Given("a schema with an array of enum refs") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("diets"),
+      properties = mapOf(
+        "diets" to Schema(type = "array", items = Schema(ref = "#/components/schemas/Diet")),
+        "preyTypes" to Schema(type = "array", items = Schema(ref = "#/components/schemas/PreyType")),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("required array of enum refs should be List<Diet>") {
+        code shouldContain "val diets: List<Diet>"
+        code shouldNotContain "val diets: List<Diet>?"
+      }
+
+      Then("optional array of enum refs should be nullable List<PreyType>") {
+        code shouldContain "val preyTypes: List<PreyType>?"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 
@@ -216,6 +338,80 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("it should capitalise the class name") {
         code shouldContain "data class Dinosaur"
+      }
+    }
+  }
+
+  Given("a schema with format-mapped properties") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("id", "createdAt", "birthDate", "startTime", "timeout",
+        "avatar", "attachment", "endpoint", "externalId", "score"),
+      properties = mapOf(
+        "id" to Schema(type = "string", format = "uuid"),
+        "createdAt" to Schema(type = "string", format = "date-time"),
+        "birthDate" to Schema(type = "string", format = "date"),
+        "startTime" to Schema(type = "string", format = "time"),
+        "timeout" to Schema(type = "string", format = "duration"),
+        "avatar" to Schema(type = "string", format = "byte"),
+        "attachment" to Schema(type = "string", format = "binary"),
+        "endpoint" to Schema(type = "string", format = "uri"),
+        "externalId" to Schema(type = "integer", format = "int64"),
+        "score" to Schema(type = "number", format = "float"),
+        "name" to Schema(type = "string"),
+        "count" to Schema(type = "integer"),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("uuid format maps to UUID") {
+        code shouldContain "val id: UUID"
+      }
+
+      Then("date-time format maps to Instant") {
+        code shouldContain "val createdAt: Instant"
+      }
+
+      Then("date format maps to LocalDate") {
+        code shouldContain "val birthDate: LocalDate"
+      }
+
+      Then("time format maps to LocalTime") {
+        code shouldContain "val startTime: LocalTime"
+      }
+
+      Then("duration format maps to Duration") {
+        code shouldContain "val timeout: Duration"
+      }
+
+      Then("byte format maps to ByteArray") {
+        code shouldContain "val avatar: ByteArray"
+      }
+
+      Then("binary format maps to ByteArray") {
+        code shouldContain "val attachment: ByteArray"
+      }
+
+      Then("uri format maps to URI") {
+        code shouldContain "val endpoint: URI"
+      }
+
+      Then("int64 format maps to Long") {
+        code shouldContain "val externalId: Long"
+      }
+
+      Then("float format maps to Float") {
+        code shouldContain "val score: Float"
+      }
+
+      Then("plain string without format stays String") {
+        code shouldContain "val name: String?"
+      }
+
+      Then("plain integer without format stays Int") {
+        code shouldContain "val count: Int?"
       }
     }
   }

@@ -5,6 +5,7 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
@@ -56,6 +57,11 @@ class KotlinClassGenerator {
 
           propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
 
+          if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
+            val values = propValue.items.enum.joinToString(", ")
+            propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+          }
+
           propertyBuilder.build()
         } ?: emptyList()
 
@@ -91,19 +97,57 @@ class KotlinClassGenerator {
     val baseType =
         when {
           propValue.ref != null -> ClassName(PACKAGE, propValue.ref.substringAfterLast("/"))
-          else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type)
+          propValue.type == "array" -> {
+            val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+            List::class.asTypeName().parameterizedBy(elementType)
+          }
+          else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type, propValue.format)
         }
     return if (isNullable) baseType.copy(nullable = true) else baseType
   }
 
-  private fun mapTypeToKotlin(openApiType: String?): TypeName =
-      when (openApiType) {
-        "string" -> String::class.asTypeName()
-        "integer" -> Int::class.asTypeName()
-        "number" -> Double::class.asTypeName()
-        "boolean" -> Boolean::class.asTypeName()
-        "array" -> List::class.asTypeName()
-        "object" -> Any::class.asTypeName()
-        else -> String::class.asTypeName()
+  private fun resolveItemType(items: Schema): TypeName =
+      when {
+        items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
+        items.type == "array" -> {
+          val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+          List::class.asTypeName().parameterizedBy(elementType)
+        }
+        else -> mapTypeToKotlin(items.type, items.format)
       }
+
+  private fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
+      formatMappings[openApiType]?.get(format)
+          ?: baseMappings[openApiType]
+          ?: String::class.asTypeName()
+
+  companion object {
+    private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
+        "string" to mapOf(
+            "date-time" to java.time.Instant::class.asTypeName(),
+            "date"      to java.time.LocalDate::class.asTypeName(),
+            "time"      to java.time.LocalTime::class.asTypeName(),
+            "duration"  to java.time.Duration::class.asTypeName(),
+            "uuid"      to java.util.UUID::class.asTypeName(),
+            "uri"       to java.net.URI::class.asTypeName(),
+            "byte"      to ByteArray::class.asTypeName(),
+            "binary"    to ByteArray::class.asTypeName(),
+        ),
+        "integer" to mapOf(
+            "int64" to Long::class.asTypeName(),
+        ),
+        "number" to mapOf(
+            "float" to Float::class.asTypeName(),
+        ),
+    )
+
+    private val baseMappings: Map<String, TypeName> = mapOf(
+        "string"  to String::class.asTypeName(),
+        "integer" to Int::class.asTypeName(),
+        "number"  to Double::class.asTypeName(),
+        "boolean" to Boolean::class.asTypeName(),
+        "array"   to List::class.asTypeName(),
+        "object"  to Any::class.asTypeName(),
+    )
+  }
 }
