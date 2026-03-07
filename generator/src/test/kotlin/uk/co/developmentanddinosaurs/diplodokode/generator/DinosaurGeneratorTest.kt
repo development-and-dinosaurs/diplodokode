@@ -116,6 +116,42 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with allOf schemas") {
+    val openApiSpec = File("src/test/resources/allof-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("it should generate a file for each schema") {
+        generatedFiles shouldHaveSize 2
+      }
+
+      Then("the extended schema should include properties from the referenced schema") {
+        val extendedFile = generatedFiles.find { it.name == "ExtendedDinosaur" }!!
+        val code = extendedFile.toString()
+        code shouldContain "val name: String"
+        code shouldContain "val age: Int"
+      }
+
+      Then("the extended schema should include its own properties") {
+        val extendedFile = generatedFiles.find { it.name == "ExtendedDinosaur" }!!
+        val code = extendedFile.toString()
+        code shouldContain "val armLength: Double"
+        code shouldContain "val favouriteFood: String?"
+      }
+
+      Then("required fields from the referenced schema should be non-nullable") {
+        val extendedFile = generatedFiles.find { it.name == "ExtendedDinosaur" }!!
+        extendedFile.toString() shouldContain "val name: String"
+      }
+
+      Then("the extended schema does not inherit from the base schema") {
+        val extendedFile = generatedFiles.find { it.name == "ExtendedDinosaur" }!!
+        extendedFile.toString() shouldNotContain ": Dinosaur"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

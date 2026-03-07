@@ -17,6 +17,7 @@ data class Components(
 @Serializable
 data class Schema(
   @SerialName($$"$ref") val ref: String? = null,
+  val allOf: List<Schema>? = null,
   val description: String? = null,
   val enum: List<String>? = null,
   val format: String? = null,
