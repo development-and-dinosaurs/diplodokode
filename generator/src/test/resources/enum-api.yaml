@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Enum API
+  version: 1.0.0
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      required:
+        - name
+        - diet
+      properties:
+        name:
+          type: string
+          description: The name of the dinosaur
+        diet:
+          type: string
+          enum:
+            - carnivore
+            - herbivore
+          description: The diet of the dinosaur
+        favouritePrey:
+          type: string
+          enum:
+            - triceratops
+            - brachiosaurus
+          description: The dinosaur's favourite prey

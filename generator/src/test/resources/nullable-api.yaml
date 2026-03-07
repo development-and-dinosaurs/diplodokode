@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: Nullable API
+  version: 1.0.0
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      required:
+        - name
+        - tag
+      properties:
+        name:
+          type: string
+          description: The name of the dinosaur
+        tag:
+          type: string
+          nullable: true
+          description: An optional tag that may be explicitly null
