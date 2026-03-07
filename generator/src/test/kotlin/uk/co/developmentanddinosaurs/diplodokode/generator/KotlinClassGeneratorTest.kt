@@ -366,8 +366,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a data class") {
       val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
-      Then("uuid format maps to UUID") {
-        code shouldContain "val id: UUID"
+      Then("uuid format maps to Uuid") {
+        code shouldContain "val id: Uuid"
       }
 
       Then("date-time format maps to Instant") {
@@ -394,8 +394,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         code shouldContain "val attachment: ByteArray"
       }
 
-      Then("uri format maps to URI") {
-        code shouldContain "val endpoint: URI"
+      Then("uri format maps to String") {
+        code shouldContain "val endpoint: String"
       }
 
       Then("int64 format maps to Long") {

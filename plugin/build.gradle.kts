@@ -22,10 +22,12 @@ gradlePlugin {
 kotlin { jvmToolchain(21) }
 
 dependencies {
+  compileOnly(libs.kotlin.gradle.plugin)
+
   implementation(project(":diplodokode-generator"))
   implementation(kotlin("stdlib"))
   implementation(libs.kotlinpoet)
-  
+
   testImplementation(libs.kotest.runner.junit5)
   testImplementation(libs.kotest.assertions.core)
 }

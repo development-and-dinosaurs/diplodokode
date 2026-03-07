@@ -1,5 +1,6 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -23,6 +24,15 @@ class KotlinClassGenerator {
   private fun generateDataClass(name: String, schema: Schema): FileSpec {
     val className = name.replaceFirstChar { it.uppercase() }
     val fileBuilder = FileSpec.builder(PACKAGE, className)
+
+    if (hasUuidFormat(schema)) {
+      fileBuilder.addAnnotation(
+          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
+              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
+              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
+              .build()
+      )
+    }
 
     val enumClassNames =
         schema.properties
@@ -121,15 +131,18 @@ class KotlinClassGenerator {
           ?: baseMappings[openApiType]
           ?: String::class.asTypeName()
 
+  private fun hasUuidFormat(schema: Schema): Boolean =
+      schema.properties?.values?.any { it.type == "string" && it.format == "uuid" } == true
+
   companion object {
     private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
         "string" to mapOf(
-            "date-time" to java.time.Instant::class.asTypeName(),
-            "date"      to java.time.LocalDate::class.asTypeName(),
-            "time"      to java.time.LocalTime::class.asTypeName(),
-            "duration"  to java.time.Duration::class.asTypeName(),
-            "uuid"      to java.util.UUID::class.asTypeName(),
-            "uri"       to java.net.URI::class.asTypeName(),
+            "date-time" to ClassName("kotlinx.datetime", "Instant"),
+            "date"      to ClassName("kotlinx.datetime", "LocalDate"),
+            "time"      to ClassName("kotlinx.datetime", "LocalTime"),
+            "duration"  to ClassName("kotlin.time", "Duration"),
+            "uuid"      to ClassName("kotlin.uuid", "Uuid"),
+            "uri"       to String::class.asTypeName(),
             "byte"      to ByteArray::class.asTypeName(),
             "binary"    to ByteArray::class.asTypeName(),
         ),
