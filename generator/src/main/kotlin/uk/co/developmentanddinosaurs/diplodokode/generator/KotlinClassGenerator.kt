@@ -132,7 +132,11 @@ class KotlinClassGenerator {
           ?: String::class.asTypeName()
 
   private fun hasUuidFormat(schema: Schema): Boolean =
-      schema.properties?.values?.any { it.type == "string" && it.format == "uuid" } == true
+      schema.properties?.values?.any { usesUuid(it) } == true
+
+  private fun usesUuid(prop: Schema): Boolean =
+      (prop.type == "string" && prop.format == "uuid") ||
+          (prop.type == "array" && prop.items != null && usesUuid(prop.items))
 
   companion object {
     private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
