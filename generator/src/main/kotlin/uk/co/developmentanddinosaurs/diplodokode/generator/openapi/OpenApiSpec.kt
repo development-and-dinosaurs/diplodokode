@@ -16,11 +16,12 @@ data class Components(
 
 @Serializable
 data class Schema(
-  val type: String? = null,
-  val required: List<String>? = null,
-  val description: String? = null,
-  val properties: Map<String, Schema>? = null,
-  val nullable: Boolean? = null,
-  val enum: List<String>? = null,
   @SerialName($$"$ref") val ref: String? = null,
+  val description: String? = null,
+  val enum: List<String>? = null,
+  val items: Schema? = null,
+  val nullable: Boolean? = null,
+  val properties: Map<String, Schema>? = null,
+  val required: List<String>? = null,
+  val type: String? = null,
 )

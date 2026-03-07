@@ -69,6 +69,28 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with typed array properties") {
+    val openApiSpec = File("src/test/resources/array-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("it should generate a file for each schema") {
+        generatedFiles shouldHaveSize 2
+      }
+
+      Then("required array of strings should be List<String>") {
+        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
+        dinosaurFile.toString() shouldContain "val tags: List<String>"
+      }
+
+      Then("optional array of refs should be nullable List<Tag>") {
+        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
+        dinosaurFile.toString() shouldContain "val relatedDinosaurs: List<Tag>?"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

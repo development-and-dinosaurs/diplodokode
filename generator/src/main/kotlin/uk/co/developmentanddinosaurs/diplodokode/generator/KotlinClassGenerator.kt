@@ -5,6 +5,7 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
@@ -91,10 +92,20 @@ class KotlinClassGenerator {
     val baseType =
         when {
           propValue.ref != null -> ClassName(PACKAGE, propValue.ref.substringAfterLast("/"))
+          propValue.type == "array" -> {
+            val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+            List::class.asTypeName().parameterizedBy(elementType)
+          }
           else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type)
         }
     return if (isNullable) baseType.copy(nullable = true) else baseType
   }
+
+  private fun resolveItemType(items: Schema): TypeName =
+      when {
+        items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
+        else -> mapTypeToKotlin(items.type)
+      }
 
   private fun mapTypeToKotlin(openApiType: String?): TypeName =
       when (openApiType) {

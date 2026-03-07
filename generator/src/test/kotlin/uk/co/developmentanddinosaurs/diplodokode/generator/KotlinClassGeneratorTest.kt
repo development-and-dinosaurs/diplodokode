@@ -208,6 +208,45 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a typed array property") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("tags", "aliases"),
+      properties = mapOf(
+        "tags" to Schema(type = "array", items = Schema(type = "string")),
+        "aliases" to Schema(type = "array", items = Schema(type = "string")),
+        "friendIds" to Schema(type = "array", items = Schema(type = "integer")),
+        "friends" to Schema(type = "array", items = Schema(ref = "#/components/schemas/Dinosaur")),
+        "rawList" to Schema(type = "array"),
+      )
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("required string array should be non-nullable List<String>") {
+        code shouldContain "val tags: List<String>"
+        code shouldNotContain "val tags: List<String>?"
+      }
+
+      Then("required array should be non-nullable") {
+        code shouldContain "val aliases: List<String>"
+      }
+
+      Then("optional integer array should be nullable List<Int>") {
+        code shouldContain "val friendIds: List<Int>?"
+      }
+
+      Then("array with ref items should resolve to the referenced type") {
+        code shouldContain "val friends: List<Dinosaur>?"
+      }
+
+      Then("array without items should fall back to List<Any>") {
+        code shouldContain "val rawList: List<Any>?"
+      }
+    }
+  }
+
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 
