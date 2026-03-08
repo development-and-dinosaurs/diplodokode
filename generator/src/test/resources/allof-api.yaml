@@ -2,6 +2,7 @@ openapi: 3.0.3
 info:
   title: AllOf API
   version: "1.0"
+
 components:
   schemas:
     Dinosaur:
@@ -33,3 +34,11 @@ components:
             favouriteFood:
               type: string
               description: The favourite food of the dinosaur
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

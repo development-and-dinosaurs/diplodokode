@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Enum API
-  version: 1.0.0
+  version: "1.0"
 
 components:
   schemas:
@@ -26,3 +26,11 @@ components:
             - triceratops
             - brachiosaurus
           description: The dinosaur's favourite prey
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

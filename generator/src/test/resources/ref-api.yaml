@@ -1,15 +1,10 @@
 openapi: 3.0.3
 info:
   title: Ref API
-  version: 1.0.0
+  version: "1.0"
 
 components:
   schemas:
-    Diet:
-      type: string
-      enum:
-        - carnivore
-        - herbivore
     Dinosaur:
       type: object
       required:
@@ -24,3 +19,16 @@ components:
         favouritePrey:
           type: string
           description: The name of the dinosaur's favourite prey
+    Diet:
+      type: string
+      enum:
+        - carnivore
+        - herbivore
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

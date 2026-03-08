@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Format API
-  version: 1.0.0
+  version: "1.0"
 
 components:
   schemas:
@@ -30,3 +30,11 @@ components:
         - birthDate
         - populationCount
         - name
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

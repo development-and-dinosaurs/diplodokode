@@ -1,8 +1,7 @@
 openapi: 3.0.3
 info:
   title: Dinosaur API
-  version: 1.0.0
-  description: API for managing dinosaur information
+  version: "1.0"
 
 components:
   schemas:

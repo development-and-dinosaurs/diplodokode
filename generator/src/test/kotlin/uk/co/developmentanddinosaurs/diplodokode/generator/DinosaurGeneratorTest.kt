@@ -222,13 +222,12 @@ class DinosaurGeneratorTest : BehaviorSpec({
       }
       
       Then("it should generate an empty dinosaur class") {
-        val emptyClassFile = generatedFiles.find { it.name.contains("EmptyDinosaur") }
+        val emptyClassFile = generatedFiles.find { it.name.contains("Dinosaur") }
         emptyClassFile shouldNotBe null
         
         val generatedCode = emptyClassFile.toString()
-        generatedCode shouldContain "data class EmptyDinosaur"
+        generatedCode shouldContain "data class Dinosaur"
 
-        // Should not contain any properties
         generatedCode shouldNotContain "val "
         generatedCode shouldNotContain "constructor"
       }
