@@ -167,19 +167,32 @@ class DinosaurGeneratorTest : BehaviorSpec({
         dinosaurFile.toString() shouldContain "sealed interface Dinosaur"
       }
 
-      Then("the sealed interface should have a discriminator property") {
-        val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
-        dinosaurFile.toString() shouldContain "val type: String"
+      Then("the sealed interface should have a typed discriminator property and nested enum") {
+        val code = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+        code shouldContain "val type: Type"
+        code shouldContain "enum class Type"
+        code shouldContain "TYRANNOSAUR"
+        code shouldContain "TRICERATOPS"
       }
 
       Then("each variant should be a data class implementing the sealed interface") {
-        val tyrannosaurFile = generatedFiles.find { it.name == "Tyrannosaur" }!!
-        tyrannosaurFile.toString() shouldContain "data class Tyrannosaur"
-        tyrannosaurFile.toString() shouldContain ": Dinosaur"
+        val tyrannosaurCode = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "data class Tyrannosaur"
+        tyrannosaurCode shouldContain ": Dinosaur"
 
-        val triceratopsFile = generatedFiles.find { it.name == "Triceratops" }!!
-        triceratopsFile.toString() shouldContain "data class Triceratops"
-        triceratopsFile.toString() shouldContain ": Dinosaur"
+        val triceratopsCode = generatedFiles.find { it.name == "Triceratops" }!!.toString()
+        triceratopsCode shouldContain "data class Triceratops"
+        triceratopsCode shouldContain ": Dinosaur"
+      }
+
+      Then("each variant should override the discriminator property with a typed default") {
+        val tyrannosaurCode = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "override val type: Dinosaur.Type"
+        tyrannosaurCode shouldContain "Dinosaur.Type.TYRANNOSAUR"
+
+        val triceratopsCode = generatedFiles.find { it.name == "Triceratops" }!!.toString()
+        triceratopsCode shouldContain "override val type: Dinosaur.Type"
+        triceratopsCode shouldContain "Dinosaur.Type.TRICERATOPS"
       }
     }
   }

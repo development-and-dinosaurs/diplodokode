@@ -34,4 +34,5 @@ data class Schema(
 @Serializable
 data class Discriminator(
   val propertyName: String,
+  val mapping: Map<String, String>? = null,
 )
