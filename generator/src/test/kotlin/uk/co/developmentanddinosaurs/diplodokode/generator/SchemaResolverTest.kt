@@ -263,6 +263,50 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a oneOf schema with discriminator where only some variants have the discriminator property") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+                Schema(ref = "#/components/schemas/Triceratops"),
+            ),
+            discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+        ),
+        "Tyrannosaur" to Schema(
+            type = "object",
+            properties = mapOf(
+                "type" to Schema(type = "string", enum = listOf("tyrannosaur")),
+                "armLength" to Schema(type = "number"),
+            ),
+        ),
+        "Triceratops" to Schema(
+            type = "object",
+            properties = mapOf(
+                "hornCount" to Schema(type = "integer"),
+                // no 'type' property
+            ),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("no discriminator enum is produced") {
+        resolved.discriminatorEnums["Dinosaur"] shouldBe null
+      }
+
+      Then("no discriminator overrides are produced for any variant") {
+        resolved.discriminatorOverrides["Tyrannosaur"] shouldBe null
+        resolved.discriminatorOverrides["Triceratops"] shouldBe null
+      }
+
+      Then("both variants still implement the interface") {
+        resolved.implementedInterfaces["Tyrannosaur"]!! shouldContain "Dinosaur"
+        resolved.implementedInterfaces["Triceratops"]!! shouldContain "Dinosaur"
+      }
+    }
+  }
+
   Given("a schema with oneOf inline variants") {
     val schemas = mapOf(
         "Dinosaur" to Schema(

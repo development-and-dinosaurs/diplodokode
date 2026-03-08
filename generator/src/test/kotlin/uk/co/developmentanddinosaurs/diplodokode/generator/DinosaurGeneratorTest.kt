@@ -269,6 +269,34 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with a oneOf discriminator where only some variants carry the discriminator property") {
+    val openApiSpec = File("src/test/resources/partial-discriminator-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+      val dinosaurCode = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+
+      Then("it should still generate a sealed interface") {
+        dinosaurCode shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("the discriminator falls back to abstract val type: String") {
+        dinosaurCode shouldContain "val type: String"
+      }
+
+      Then("a KDoc warning is emitted on the sealed interface") {
+        dinosaurCode shouldContain "Warning:"
+        dinosaurCode shouldContain "type"
+        dinosaurCode shouldContain "not all variants"
+      }
+
+      Then("both variants still implement the sealed interface") {
+        generatedFiles.find { it.name == "Tyrannosaur" }!!.toString() shouldContain ": Dinosaur"
+        generatedFiles.find { it.name == "Triceratops" }!!.toString() shouldContain ": Dinosaur"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()

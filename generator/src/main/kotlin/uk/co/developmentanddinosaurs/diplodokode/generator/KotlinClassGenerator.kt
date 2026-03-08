@@ -59,6 +59,9 @@ class KotlinClassGenerator {
       )
     } else {
       schema.discriminator?.let { disc ->
+        interfaceBuilder.addKdoc(
+            "Warning: discriminator property '${disc.propertyName}' is declared but not all variants carry it; falling back to `abstract val ${disc.propertyName}: String`.\n"
+        )
         interfaceBuilder.addProperty(
             PropertySpec.builder(disc.propertyName, String::class)
                 .addModifiers(KModifier.ABSTRACT)

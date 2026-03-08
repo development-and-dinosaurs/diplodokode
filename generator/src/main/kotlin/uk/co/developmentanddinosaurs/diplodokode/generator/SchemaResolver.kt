@@ -80,18 +80,24 @@ class SchemaResolver {
 
       val discriminator = schema.discriminator ?: return@forEach
 
+      val stagedOverrides = mutableMapOf<String, DiscriminatorOverride>()
       val constants = mutableListOf<String>()
       refVariants.forEach { variantName ->
         val variantSchema = flatSchemas[variantName] ?: return@forEach
         if (!variantSchema.properties.isNullOrEmpty() && variantSchema.properties.containsKey(discriminator.propertyName)) {
           val constant = discriminatorValueFor(variantName, discriminator, variantSchema).uppercase()
           constants.add(constant)
-          overrideMap[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant)
+          stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant)
         }
       }
 
-      if (constants.isNotEmpty()) {
+      // Only use the typed discriminator enum if every ref variant has the discriminator
+      // property. If any variant is missing it, the abstract override on the sealed interface
+      // cannot be satisfied by all implementors, producing uncompilable Kotlin. Fall back to
+      // abstract val prop: String in that case.
+      if (constants.size == refVariants.size && constants.isNotEmpty()) {
         enumMap[interfaceName] = DiscriminatorEnum(discriminator.propertyName, constants)
+        overrideMap.putAll(stagedOverrides)
       }
     }
 
