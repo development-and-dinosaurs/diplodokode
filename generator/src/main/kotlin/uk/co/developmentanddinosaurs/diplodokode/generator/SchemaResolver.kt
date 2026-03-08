@@ -25,7 +25,7 @@ class SchemaResolver {
 
   fun resolve(schemas: Map<String, Schema>): ResolvedSpec {
     val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }
-    val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas)
+    val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas, flatSchemas)
     return ResolvedSpec(flatSchemas, interfaceMap, enumMap, overrideMap)
   }
 
@@ -58,13 +58,14 @@ class SchemaResolver {
   }
 
   private fun buildDiscriminatorMaps(
-      schemas: Map<String, Schema>
+      rawSchemas: Map<String, Schema>,
+      flatSchemas: Map<String, Schema>,
   ): Triple<Map<String, List<String>>, Map<String, DiscriminatorEnum>, Map<String, DiscriminatorOverride>> {
     val interfaceMap = mutableMapOf<String, MutableList<String>>()
     val enumMap = mutableMapOf<String, DiscriminatorEnum>()
     val overrideMap = mutableMapOf<String, DiscriminatorOverride>()
 
-    schemas.forEach { (interfaceName, schema) ->
+    rawSchemas.forEach { (interfaceName, schema) ->
       val variants = schema.oneOf ?: schema.anyOf ?: return@forEach
       val refVariants = variants.mapNotNull { it.ref?.substringAfterLast("/") }
 
@@ -76,7 +77,7 @@ class SchemaResolver {
 
       val constants = mutableListOf<String>()
       refVariants.forEach { variantName ->
-        val variantSchema = schemas[variantName] ?: return@forEach
+        val variantSchema = flatSchemas[variantName] ?: return@forEach
         if (!variantSchema.properties.isNullOrEmpty() && variantSchema.properties.containsKey(discriminator.propertyName)) {
           val constant = discriminatorValueFor(variantName, discriminator, variantSchema).uppercase()
           constants.add(constant)

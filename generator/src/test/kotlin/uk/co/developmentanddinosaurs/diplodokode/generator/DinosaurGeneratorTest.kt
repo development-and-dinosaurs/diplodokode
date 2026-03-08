@@ -223,6 +223,42 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with the cyclic allOf + oneOf inheritance-simulation pattern") {
+    val openApiSpec = File("src/test/resources/allof-cyclic-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("it should generate a file for each schema") {
+        generatedFiles shouldHaveSize 3
+      }
+
+      Then("the parent schema should be a sealed interface") {
+        generatedFiles.find { it.name == "Dinosaur" }!!.toString() shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("each variant should be a data class implementing the sealed interface") {
+        generatedFiles.find { it.name == "Tyrannosaur" }!!.toString() shouldContain ": Dinosaur"
+        generatedFiles.find { it.name == "Triceratops" }!!.toString() shouldContain ": Dinosaur"
+      }
+
+      Then("each variant should override the discriminator property with a typed default") {
+        val tyrannosaurCode = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "override val type: Dinosaur.Type"
+        tyrannosaurCode shouldContain "Dinosaur.Type.TYRANNOSAUR"
+
+        val triceratopsCode = generatedFiles.find { it.name == "Triceratops" }!!.toString()
+        triceratopsCode shouldContain "override val type: Dinosaur.Type"
+        triceratopsCode shouldContain "Dinosaur.Type.TRICERATOPS"
+      }
+
+      Then("each variant should have its own properties") {
+        generatedFiles.find { it.name == "Tyrannosaur" }!!.toString() shouldContain "val armLength: Double"
+        generatedFiles.find { it.name == "Triceratops" }!!.toString() shouldContain "val hornCount: Int"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
     val generator = DiplodokodeGenerator()
