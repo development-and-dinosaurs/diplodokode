@@ -6,10 +6,34 @@ info:
 components:
   schemas:
 
-    # oneOf — sealed interface with discriminator
-    # Dinosaur is the parent type. Exactly one variant must be used.
+    # =========================================================================
+    # Pattern 1: oneOf + discriminator  (recommended pattern)
+    # =========================================================================
+    #
+    # Each variant is a plain type: object. The discriminator property is pinned
+    # to a single value via an inline enum on each variant. No allOf
+    # back-reference is needed, so there are no cyclic references.
+    #
+    # This is the recommended pattern for Diplodokode consumers.
+    #
+    # Generated Kotlin:
+    #
+    #   sealed interface Dinosaur {
+    #     val type: Dinosaur.Type
+    #     enum class Type { TYRANNOSAUR, TRICERATOPS }
+    #   }
+    #   data class Tyrannosaur(
+    #     override val type: Dinosaur.Type = Dinosaur.Type.TYRANNOSAUR,
+    #     val name: String,
+    #     val armLength: Double,
+    #   ) : Dinosaur
+    #   data class Triceratops(
+    #     override val type: Dinosaur.Type = Dinosaur.Type.TRICERATOPS,
+    #     val name: String,
+    #     val hornCount: Int,
+    #   ) : Dinosaur
     Dinosaur:
-      description: A dinosaur
+      description: A dinosaur. Exactly one variant must be used.
       oneOf:
         - $ref: '#/components/schemas/Tyrannosaur'
         - $ref: '#/components/schemas/Triceratops'
@@ -52,13 +76,225 @@ components:
           type: integer
           description: Number of horns
 
-    # allOf — flat composition (no IS-A relationship)
-    # AuditInfo is a reusable mixin for any record that needs provenance metadata.
-    # DinosaurMeasurements captures physical stats about a specimen.
-    # DinosaurProfile composes both: it is not "an AuditInfo" or "a DinosaurMeasurements".
+    # =========================================================================
+    # Pattern 2: oneOf + discriminator  (cyclic allOf back-reference pattern)
+    # =========================================================================
+    #
+    # The real motivation for the allOf back-reference is shared properties.
+    # Habitat declares properties common to all habitats (name, areaSquareKm).
+    # Each variant allOf-includes Habitat to inherit those shared properties,
+    # then adds its own variant-specific properties in an inline object.
+    # Without allOf, every variant would have to redeclare name and areaSquareKm.
+    #
+    # Note: the discriminator property (habitatType) is NOT declared on the
+    # parent — only the variant-specific value is declared on each child via
+    # an inline enum. Declaring all enum values on the parent would cause every
+    # child to inherit the full list rather than a single pinned value.
+    #
+    # Generated Kotlin:
+    #
+    #   sealed interface Habitat {
+    #     val habitatType: Habitat.Type
+    #     val name: String        // abstract — shared property on the interface
+    #     val areaSquareKm: Double
+    #     enum class Type { FOREST, SWAMP }
+    #   }
+    #   data class ForestHabitat(
+    #     override val name: String,
+    #     override val areaSquareKm: Double,
+    #     override val habitatType: Habitat.Type = Habitat.Type.FOREST,
+    #     val canopyHeightMetres: Double,
+    #   ) : Habitat
+    #   data class SwampHabitat(
+    #     override val name: String,
+    #     override val areaSquareKm: Double,
+    #     override val habitatType: Habitat.Type = Habitat.Type.SWAMP,
+    #     val waterDepthMetres: Double,
+    #   ) : Habitat
+    Habitat:
+      description: A dinosaur habitat. Exactly one type applies.
+      oneOf:
+        - $ref: '#/components/schemas/ForestHabitat'
+        - $ref: '#/components/schemas/SwampHabitat'
+      discriminator:
+        propertyName: habitatType
+      type: object
+      required:
+        - name
+        - areaSquareKm
+      properties:
+        name:
+          type: string
+          description: The name of this habitat
+        areaSquareKm:
+          type: number
+          description: Total area of the habitat in square kilometres
+
+    ForestHabitat:
+      description: A dense forest habitat
+      allOf:
+        - $ref: '#/components/schemas/Habitat'
+        - type: object
+          required:
+            - habitatType
+            - canopyHeightMetres
+          properties:
+            habitatType:
+              type: string
+              enum: [forest]
+            canopyHeightMetres:
+              type: number
+              description: Height of the forest canopy in metres
+
+    SwampHabitat:
+      description: A waterlogged swamp habitat
+      allOf:
+        - $ref: '#/components/schemas/Habitat'
+        - type: object
+          required:
+            - habitatType
+            - waterDepthMetres
+          properties:
+            habitatType:
+              type: string
+              enum: [swamp]
+            waterDepthMetres:
+              type: number
+              description: Average water depth in metres
+
+    # =========================================================================
+    # Pattern 3: anyOf + discriminator
+    # =========================================================================
+    #
+    # anyOf means one or more variants may apply simultaneously — looser than
+    # oneOf. The generated sealed interface is structurally identical to oneOf
+    # but KDoc notes the difference. Use anyOf when multiple variants can be
+    # valid at the same time.
+    #
+    # Generated Kotlin:
+    #
+    #   /** One or more of the following variants may be used. */
+    #   sealed interface DefenceStrategy {
+    #     val strategyType: DefenceStrategy.Type
+    #     enum class Type { ACTIVE, PASSIVE }
+    #   }
+    #   data class ActiveDefence(
+    #     override val strategyType: DefenceStrategy.Type = DefenceStrategy.Type.ACTIVE,
+    #     val weaponType: String,
+    #   ) : DefenceStrategy
+    #   data class PassiveDefence(
+    #     override val strategyType: DefenceStrategy.Type = DefenceStrategy.Type.PASSIVE,
+    #     val armorThicknessMm: Double,
+    #   ) : DefenceStrategy
+    DefenceStrategy:
+      description: A defensive strategy employed by a dinosaur. One or more may apply.
+      anyOf:
+        - $ref: '#/components/schemas/ActiveDefence'
+        - $ref: '#/components/schemas/PassiveDefence'
+      discriminator:
+        propertyName: strategyType
+
+    ActiveDefence:
+      type: object
+      description: An active defence strategy using physical weapons
+      required:
+        - strategyType
+        - weaponType
+      properties:
+        strategyType:
+          type: string
+          enum: [active]
+        weaponType:
+          type: string
+          description: The type of weapon used (e.g. horns, claws, tail club)
+
+    PassiveDefence:
+      type: object
+      description: A passive defence strategy using protective armour
+      required:
+        - strategyType
+        - armorThicknessMm
+      properties:
+        strategyType:
+          type: string
+          enum: [passive]
+        armorThicknessMm:
+          type: number
+          description: Thickness of the protective armour in millimetres
+
+    # =========================================================================
+    # Pattern 4: oneOf without discriminator
+    # =========================================================================
+    #
+    # When no discriminator is declared, the sealed interface has no abstract
+    # type property. Consumers must distinguish variants by shape at runtime
+    # (e.g. using an exhaustive when expression). Use this pattern when the
+    # variants have no natural type field, or when type discrimination is
+    # handled out-of-band.
+    #
+    # Generated Kotlin:
+    #
+    #   sealed interface Footprint
+    #   data class ThreeToeFootprint(val lengthCm: Double, val toeSpreadDegrees: Double) : Footprint
+    #   data class FlatFootprint(val lengthCm: Double, val widthCm: Double) : Footprint
+    Footprint:
+      description: A dinosaur footprint found at an excavation site. Exactly one shape applies.
+      oneOf:
+        - $ref: '#/components/schemas/ThreeToeFootprint'
+        - $ref: '#/components/schemas/FlatFootprint'
+
+    ThreeToeFootprint:
+      type: object
+      description: A three-toed footprint typical of bipedal theropods
+      required:
+        - lengthCm
+        - toeSpreadDegrees
+      properties:
+        lengthCm:
+          type: number
+          description: Length of the footprint in centimetres
+        toeSpreadDegrees:
+          type: number
+          description: Angular spread between the outer toes in degrees
+
+    FlatFootprint:
+      type: object
+      description: A flat wide footprint typical of sauropods
+      required:
+        - lengthCm
+        - widthCm
+      properties:
+        lengthCm:
+          type: number
+          description: Length of the footprint in centimetres
+        widthCm:
+          type: number
+          description: Width of the footprint in centimetres
+
+    # =========================================================================
+    # Pattern 5: allOf flat mixin  (composition via $ref)
+    # =========================================================================
+    #
+    # allOf is always flat composition — never inheritance. AuditInfo and
+    # DinosaurMeasurements are independent reusable schemas; neither defines
+    # what a DinosaurProfile "is". AuditInfo could equally be composed into an
+    # EnclosureRecord or a FeedingLog. DinosaurProfile does not implement any
+    # sealed interface.
+    #
+    # Generated Kotlin:
+    #
+    #   data class AuditInfo(val recordedBy: String, val recordedAt: String)
+    #   data class DinosaurMeasurements(val heightMetres: Double, val weightKg: Double, val topSpeedKph: Double)
+    #   data class DinosaurProfile(
+    #     val recordedBy: String,
+    #     val recordedAt: String,
+    #     val heightMetres: Double,
+    #     val weightKg: Double,
+    #     val topSpeedKph: Double,
+    #   )
     AuditInfo:
       type: object
-      description: Provenance metadata for any recorded entry
+      description: Provenance metadata for any recorded entry. Reusable mixin.
       required:
         - recordedBy
         - recordedAt
@@ -72,7 +308,7 @@ components:
 
     DinosaurMeasurements:
       type: object
-      description: Physical measurements for a dinosaur specimen
+      description: Physical measurements for a dinosaur specimen. Reusable mixin.
       required:
         - heightMetres
         - weightKg
@@ -89,7 +325,18 @@ components:
           description: Estimated top speed in kilometres per hour
 
     DinosaurProfile:
-      description: A recorded profile for a dinosaur specimen, combining provenance metadata with physical measurements
+      description: >
+        A recorded profile for a dinosaur specimen, combining provenance metadata with physical
+        measurements. DinosaurProfile is not "an AuditInfo" or "a DinosaurMeasurements" — allOf
+        merges both into a single flat data class.
       allOf:
         - $ref: '#/components/schemas/AuditInfo'
         - $ref: '#/components/schemas/DinosaurMeasurements'
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs
