@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: OneOf API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      description: A dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+    Tyrannosaur:
+      type: object
+      required:
+        - type
+        - armLength
+      properties:
+        type:
+          type: string
+          enum: [tyrannosaur]
+        armLength:
+          type: number
+          description: The arm length of the tyrannosaur in metres
+    Triceratops:
+      type: object
+      required:
+        - type
+        - hornCount
+      properties:
+        type:
+          type: string
+          enum: [triceratops]
+        hornCount:
+          type: integer
+          description: The number of horns on the triceratops
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

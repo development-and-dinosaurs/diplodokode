@@ -1,6 +1,6 @@
 # Diplodokode Generator
 
-The core library for Diplodokode. 
+The core library for Diplodokode.
 
 Parses an OpenAPI specification file and generates Kotlin data classes from the schemas defined in `components.schemas`.
 
@@ -67,3 +67,24 @@ are emitted as KDoc.
 | `boolean`    | `Boolean`   |
 | `array`      | `List`      |
 | `object`     | `Any`       |
+
+## Format mapping
+
+The `format` field on a property refines the Kotlin type. All mapped types are KMP-compatible.
+
+| OpenAPI type | Format      | Kotlin type                  | Dependency           |
+|--------------|-------------|------------------------------|----------------------|
+| `string`     | `date-time` | `kotlinx.datetime.Instant`   | `kotlinx-datetime`   |
+| `string`     | `date`      | `kotlinx.datetime.LocalDate` | `kotlinx-datetime`   |
+| `string`     | `time`      | `kotlinx.datetime.LocalTime` | `kotlinx-datetime`   |
+| `string`     | `duration`  | `kotlin.time.Duration`       | stdlib               |
+| `string`     | `uuid`      | `kotlin.uuid.Uuid`           | stdlib (Kotlin 2.0+) |
+| `string`     | `uri`       | `String`                     | stdlib               |
+| `string`     | `byte`      | `ByteArray`                  | stdlib               |
+| `string`     | `binary`    | `ByteArray`                  | stdlib               |
+| `integer`    | `int64`     | `Long`                       | stdlib               |
+| `number`     | `float`     | `Float`                      | stdlib               |
+
+> **Note:** `uri` maps to `String` — there is no KMP-compatible URI type.
+
+> **Note:** Files containing `uuid`-format properties have `@file:OptIn(ExperimentalUuidApi::class)` added automatically.

@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: Partial Discriminator API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      description: A dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+    Tyrannosaur:
+      type: object
+      required:
+        - type
+        - armLength
+      properties:
+        type:
+          type: string
+          enum: [tyrannosaur]
+        armLength:
+          type: number
+    Triceratops:
+      type: object
+      required:
+        - hornCount
+      properties:
+        hornCount:
+          type: integer
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

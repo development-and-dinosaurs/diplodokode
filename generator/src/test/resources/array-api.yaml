@@ -1,17 +1,10 @@
 openapi: 3.0.3
 info:
   title: Array API
-  version: 1.0.0
+  version: "1.0"
 
 components:
   schemas:
-    Tag:
-      type: object
-      properties:
-        value:
-          type: string
-      required:
-        - value
     Dinosaur:
       type: object
       properties:
@@ -31,3 +24,18 @@ components:
       required:
         - name
         - tags
+    Tag:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

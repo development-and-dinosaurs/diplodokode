@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Nullable API
-  version: 1.0.0
+  version: "1.0"
 
 components:
   schemas:
@@ -18,3 +18,11 @@ components:
           type: string
           nullable: true
           description: An optional tag that may be explicitly null
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

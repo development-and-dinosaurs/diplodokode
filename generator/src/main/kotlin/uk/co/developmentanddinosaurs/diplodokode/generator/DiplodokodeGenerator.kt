@@ -6,12 +6,22 @@ import java.io.File
 
 class DiplodokodeGenerator {
   private val parser = OpenApiSpecParser()
+  private val resolver = SchemaResolver()
   private val classGenerator = KotlinClassGenerator()
 
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
-    return openApiSpec.components?.schemas?.map { (name, schema) ->
-      classGenerator.generateFromSchema(name, schema)
-    } ?: emptyList()
+    val schemas = openApiSpec.components?.schemas ?: return emptyList()
+    val (resolvedSchemas, implementedInterfaces, discriminatorEnums, discriminatorOverrides, interfacePropertyNames) = resolver.resolve(schemas)
+    return resolvedSchemas.map { (name, schema) ->
+      classGenerator.generateFromSchema(
+          name,
+          schema,
+          implementedInterfaces[name] ?: emptyList(),
+          discriminatorEnums[name],
+          discriminatorOverrides[name],
+          interfacePropertyNames[name] ?: emptySet(),
+      )
+    }
   }
 }

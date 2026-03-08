@@ -1,32 +1,39 @@
 openapi: 3.0.3
 info:
-  title: Dinosaur API
+  title: AllOf API
   version: "1.0"
 
 components:
   schemas:
     Dinosaur:
       type: object
+      description: A dinosaur
+      required:
+        - name
+        - age
       properties:
         name:
           type: string
           description: The name of the dinosaur
-        species:
-          type: string
-          description: The species of the dinosaur
         age:
           type: integer
           description: The age of the dinosaur in years
         weight:
           type: number
           description: The weight of the dinosaur in kilograms
-        isCarnivore:
-          type: boolean
-          description: Whether the dinosaur is carnivore
-      required:
-        - name
-        - species
-        - age
+    ExtendedDinosaur:
+      allOf:
+        - $ref: '#/components/schemas/Dinosaur'
+        - type: object
+          required:
+            - armLength
+          properties:
+            armLength:
+              type: number
+              description: The arm length of the dinosaur in metres
+            favouriteFood:
+              type: string
+              description: The favourite food of the dinosaur
 
 paths:
   /dinosaurs:

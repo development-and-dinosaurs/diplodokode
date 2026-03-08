@@ -1,6 +1,6 @@
 # Diplodokode Plugin
 
-A Gradle plugin that generates Kotlin data classes from an OpenAPI specification file as part of your build. Generated sources are automatically available at compile time.
+A Gradle plugin that generates Kotlin data classes from an OpenAPI specification file as part of your build.
 
 ## Setup
 
@@ -34,7 +34,35 @@ diplodokode {
 |-----------------------|---------------|----------------------------------------------------------|
 | `generateDiplodokode` | `diplodokode` | Generates Kotlin models from the configured OpenAPI spec |
 
-The `generateDiplodokode` task runs automatically before `compileKotlin`, so generated sources are always up to date before compilation. The task is also incremental — it is skipped if neither the spec file nor the output directory has changed since the last build.
+The task is incremental — it is skipped if neither the spec file nor the output directory has changed since the last build.
+
+## Wiring into your build
+
+The plugin registers the `generateDiplodokode` task but does not wire it into compilation automatically — build setups vary too much across languages and plugins. You are responsible for:
+
+1. Adding the output directory to your source set
+2. Making compilation depend on `generateDiplodokode`
+
+### Kotlin JVM
+
+```kotlin
+kotlin {
+  sourceSets["main"].kotlin.srcDir("build/generated/kotlin")
+}
+
+tasks.named("compileKotlin") { dependsOn("generateDiplodokode") }
+```
+
+### Kotlin Multiplatform
+
+```kotlin
+kotlin {
+  sourceSets["commonMain"].kotlin.srcDir("build/generated/kotlin")
+}
+
+tasks.matching { it.name.startsWith("compile") && it.name.contains("Kotlin") }
+    .configureEach { dependsOn("generateDiplodokode") }
+```
 
 ## Generated output
 

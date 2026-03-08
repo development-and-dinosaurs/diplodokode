@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Shared Enum Property API
+  version: "1.0"
+
+# The cyclic allOf pattern where the parent oneOf schema declares a shared property
+# that has an enum constraint. The enum-constrained shared property must be declared
+# as String on both the sealed interface and the implementing data classes, so that
+# the override type matches and the generated Kotlin compiles.
+
+components:
+  schemas:
+    Dinosaur:
+      description: A dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+      type: object
+      required:
+        - era
+      properties:
+        era:
+          type: string
+          enum: [cretaceous, jurassic]
+          description: The geological era this dinosaur lived in
+
+    Tyrannosaur:
+      description: A large bipedal carnivore
+      allOf:
+        - $ref: '#/components/schemas/Dinosaur'
+        - type: object
+          required:
+            - type
+            - armLength
+          properties:
+            type:
+              type: string
+              enum: [tyrannosaur]
+            armLength:
+              type: number
+
+    Triceratops:
+      description: A large quadrupedal herbivore with three horns
+      allOf:
+        - $ref: '#/components/schemas/Dinosaur'
+        - type: object
+          required:
+            - type
+            - hornCount
+          properties:
+            type:
+              type: string
+              enum: [triceratops]
+            hornCount:
+              type: integer
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

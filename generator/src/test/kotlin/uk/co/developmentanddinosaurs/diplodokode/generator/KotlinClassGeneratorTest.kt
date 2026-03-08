@@ -420,6 +420,159 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with oneOf variants") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should generate a sealed interface") {
+        code shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("it should not generate a data class") {
+        code shouldNotContain "data class"
+      }
+    }
+  }
+
+  Given("a schema with oneOf and a discriminator, with a pre-computed discriminator enum") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      ),
+      discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+    )
+    val discriminatorEnum = DiscriminatorEnum("type", listOf("TYRANNOSAUR", "TRICERATOPS"))
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema, discriminatorEnum = discriminatorEnum).toString()
+
+      Then("it should add a nested Type enum with all variant constants") {
+        code shouldContain "enum class Type"
+        code shouldContain "TYRANNOSAUR"
+        code shouldContain "TRICERATOPS"
+      }
+
+      Then("it should add a typed discriminator property") {
+        code shouldContain "val type: Type"
+      }
+    }
+  }
+
+  Given("a schema with oneOf and a discriminator but no pre-computed enum") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+      ),
+      discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+    )
+
+    When("the generator produces a sealed interface without discriminator enum info") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it falls back to a String discriminator property") {
+        code shouldContain "val type: String"
+      }
+    }
+  }
+
+  Given("a schema with oneOf inline variants") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should emit a KDoc note about unsupported inline variants") {
+        code shouldContain "NOTE: Inline oneOf variants are not supported"
+      }
+    }
+  }
+
+  Given("a schema with anyOf variants") {
+    val schema = Schema(
+      anyOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should generate a sealed interface") {
+        code shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("it should note that one or more variants may be used") {
+        code shouldContain "One or more of the following variants may be used"
+      }
+
+      Then("it should not generate a data class") {
+        code shouldNotContain "data class"
+      }
+    }
+  }
+
+  Given("a data class schema that implements a sealed interface") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("armLength"),
+      properties = mapOf("armLength" to Schema(type = "number")),
+    )
+
+    When("the generator produces a data class with an implemented interface") {
+      val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur")).toString()
+
+      Then("it should implement the interface") {
+        code shouldContain ": Dinosaur"
+      }
+
+      Then("it should still be a data class") {
+        code shouldContain "data class Tyrannosaur"
+      }
+    }
+  }
+
+  Given("a data class schema with a discriminator override") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("type", "armLength"),
+      properties = mapOf(
+        "type" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "armLength" to Schema(type = "number"),
+      ),
+    )
+    val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR")
+
+    When("the generator produces a data class with a discriminator override") {
+      val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+
+      Then("the discriminator property is an override with a default value") {
+        code shouldContain "override val type: Dinosaur.Type"
+        code shouldContain "Dinosaur.Type.TYRANNOSAUR"
+      }
+
+      Then("no inline enum class is generated for the discriminator property") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("other properties are generated normally") {
+        code shouldContain "val armLength: Double"
+      }
+    }
+  }
+
   Given("a schema with an array of uuid items") {
     val schema = Schema(
       type = "object",

@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: AllOf Cyclic API
+  version: "1.0"
+
+# The cyclic / inheritance-simulation pattern:
+# - Dinosaur (oneOf) lists Tyrannosaur and Triceratops as variants
+# - Each variant uses allOf to back-reference Dinosaur (to pull in the discriminator)
+#   and adds its own properties inline
+# Both directions of the relationship exist simultaneously.
+
+components:
+  schemas:
+    Dinosaur:
+      description: A dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of this dinosaur
+
+    Tyrannosaur:
+      description: A large bipedal carnivore
+      allOf:
+        - $ref: '#/components/schemas/Dinosaur'
+        - type: object
+          required:
+            - type
+            - armLength
+          properties:
+            type:
+              type: string
+              enum: [tyrannosaur]
+            armLength:
+              type: number
+              description: Arm length in metres
+
+    Triceratops:
+      description: A large quadrupedal herbivore with three horns
+      allOf:
+        - $ref: '#/components/schemas/Dinosaur'
+        - type: object
+          required:
+            - type
+            - hornCount
+          properties:
+            type:
+              type: string
+              enum: [triceratops]
+            hornCount:
+              type: integer
+              description: Number of horns
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a list of dinosaurs
+      responses:
+        '200':
+          description: A list of dinosaurs

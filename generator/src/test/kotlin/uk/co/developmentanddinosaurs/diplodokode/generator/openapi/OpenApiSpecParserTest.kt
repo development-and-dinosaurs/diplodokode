@@ -57,12 +57,12 @@ class OpenApiSpecParserTest : BehaviorSpec({
       val spec = parser.parse(specFile)
 
       Then("it should parse the schema with no properties") {
-        val schema = spec.components!!.schemas!!["EmptyDinosaur"]!!
+        val schema = spec.components!!.schemas!!["Dinosaur"]!!
         schema.properties!!.size shouldBe 0
       }
 
       Then("it should parse the schema with no required fields") {
-        val schema = spec.components!!.schemas!!["EmptyDinosaur"]!!
+        val schema = spec.components!!.schemas!!["Dinosaur"]!!
         schema.required!!.size shouldBe 0
       }
     }
