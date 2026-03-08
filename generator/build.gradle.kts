@@ -20,7 +20,10 @@ dependencies {
   testImplementation(libs.kotest.runner.junit5)
 }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+  useJUnitPlatform()
+  finalizedBy(tasks.koverHtmlReport, tasks.koverXmlReport)
+}
 
 kover {
   reports {
