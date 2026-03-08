@@ -2,7 +2,7 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
-interface NullabilityStrategy {
+fun interface NullabilityStrategy {
   fun isNullable(propertyName: String, propertySchema: Schema, requiredProperties: Set<String>): Boolean
 }
 
