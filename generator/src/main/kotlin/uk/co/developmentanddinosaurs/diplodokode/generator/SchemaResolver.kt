@@ -46,7 +46,7 @@ class SchemaResolver {
   private fun buildInterfaceMap(schemas: Map<String, Schema>): Map<String, List<String>> {
     val result = mutableMapOf<String, MutableList<String>>()
     schemas.forEach { (name, schema) ->
-      schema.oneOf?.forEach { variant ->
+      (schema.oneOf ?: schema.anyOf)?.forEach { variant ->
         variant.ref?.substringAfterLast("/")?.let { variantName ->
           result.getOrPut(variantName) { mutableListOf() }.add(name)
         }

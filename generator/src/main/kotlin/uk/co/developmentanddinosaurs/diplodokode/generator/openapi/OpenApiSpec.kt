@@ -18,6 +18,7 @@ data class Components(
 data class Schema(
   @SerialName($$"$ref") val ref: String? = null,
   val allOf: List<Schema>? = null,
+  val anyOf: List<Schema>? = null,
   val description: String? = null,
   val discriminator: Discriminator? = null,
   val enum: List<String>? = null,

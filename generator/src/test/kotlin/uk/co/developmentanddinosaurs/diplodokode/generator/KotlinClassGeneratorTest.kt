@@ -475,6 +475,31 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with anyOf variants") {
+    val schema = Schema(
+      anyOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      )
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("it should generate a sealed interface") {
+        code shouldContain "sealed interface Dinosaur"
+      }
+
+      Then("it should note that one or more variants may be used") {
+        code shouldContain "One or more of the following variants may be used"
+      }
+
+      Then("it should not generate a data class") {
+        code shouldNotContain "data class"
+      }
+    }
+  }
+
   Given("a data class schema that implements a sealed interface") {
     val schema = Schema(
       type = "object",

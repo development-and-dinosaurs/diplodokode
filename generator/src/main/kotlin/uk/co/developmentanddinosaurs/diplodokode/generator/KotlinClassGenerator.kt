@@ -24,17 +24,24 @@ class KotlinClassGenerator {
   ): FileSpec =
       when {
         !schema.enum.isNullOrEmpty() -> generateTopLevelEnum(name, schema)
-        !schema.oneOf.isNullOrEmpty() -> generateSealedInterface(name, schema)
+        !schema.oneOf.isNullOrEmpty() -> generateSealedInterface(name, schema, schema.oneOf, "oneOf")
+        !schema.anyOf.isNullOrEmpty() -> generateSealedInterface(name, schema, schema.anyOf, "anyOf")
         else -> generateDataClass(name, schema, implementedInterfaces)
       }
 
-  private fun generateSealedInterface(name: String, schema: Schema): FileSpec {
+  private fun generateSealedInterface(name: String, schema: Schema, variants: List<Schema>, keyword: String): FileSpec {
     val interfaceName = name.replaceFirstChar { it.uppercase() }
     val interfaceBuilder =
         TypeSpec.interfaceBuilder(interfaceName)
             .addModifiers(KModifier.SEALED)
 
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
+
+    val kdoc = if (keyword == "anyOf")
+      "One or more of the following variants may be used.\n"
+    else
+      "Exactly one of the following variants must be used.\n"
+    interfaceBuilder.addKdoc(kdoc)
 
     schema.discriminator?.let { disc ->
       interfaceBuilder.addProperty(
@@ -44,9 +51,9 @@ class KotlinClassGenerator {
       )
     }
 
-    schema.oneOf?.filter { it.ref == null }?.takeIf { it.isNotEmpty() }?.let {
+    variants.filter { it.ref == null }.takeIf { it.isNotEmpty() }?.let {
       interfaceBuilder.addKdoc(
-          "NOTE: Inline oneOf variants are not supported. Define variants as \$ref schemas.\n"
+          "NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n"
       )
     }
 

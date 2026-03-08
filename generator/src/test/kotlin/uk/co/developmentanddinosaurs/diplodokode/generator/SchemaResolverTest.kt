@@ -196,6 +196,31 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with anyOf variants") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            anyOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+                Schema(ref = "#/components/schemas/Triceratops"),
+            )
+        ),
+        "Tyrannosaur" to Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+        "Triceratops" to Schema(type = "object", properties = mapOf("hornCount" to Schema(type = "integer"))),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("Tyrannosaur is mapped to implement Dinosaur") {
+        resolved.implementedInterfaces["Tyrannosaur"]!! shouldContain "Dinosaur"
+      }
+
+      Then("Triceratops is mapped to implement Dinosaur") {
+        resolved.implementedInterfaces["Triceratops"]!! shouldContain "Dinosaur"
+      }
+    }
+  }
+
   Given("a schema with oneOf inline variants") {
     val schemas = mapOf(
         "Dinosaur" to Schema(
