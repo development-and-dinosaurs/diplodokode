@@ -307,6 +307,79 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a oneOf schema with discriminator values containing hyphens") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/ForestDweller"),
+                Schema(ref = "#/components/schemas/SwampDweller"),
+            ),
+            discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("habitatType"),
+        ),
+        "ForestDweller" to Schema(
+            type = "object",
+            properties = mapOf(
+                "habitatType" to Schema(type = "string", enum = listOf("forest-habitat")),
+            ),
+        ),
+        "SwampDweller" to Schema(
+            type = "object",
+            properties = mapOf(
+                "habitatType" to Schema(type = "string", enum = listOf("swamp-habitat")),
+            ),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+      val enum = resolved.discriminatorEnums["Dinosaur"].shouldNotBeNull()
+
+      Then("hyphens are replaced with underscores in enum constants") {
+        enum.constants shouldContain "FOREST_HABITAT"
+        enum.constants shouldContain "SWAMP_HABITAT"
+      }
+
+      Then("discriminator overrides use the sanitized constant") {
+        resolved.discriminatorOverrides["ForestDweller"]!!.constant shouldBe "FOREST_HABITAT"
+        resolved.discriminatorOverrides["SwampDweller"]!!.constant shouldBe "SWAMP_HABITAT"
+      }
+    }
+  }
+
+  Given("a oneOf schema with a discriminator value starting with a digit") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Biped"),
+                Schema(ref = "#/components/schemas/Quadruped"),
+            ),
+            discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("locomotion"),
+        ),
+        "Biped" to Schema(
+            type = "object",
+            properties = mapOf(
+                "locomotion" to Schema(type = "string", enum = listOf("2-legged")),
+            ),
+        ),
+        "Quadruped" to Schema(
+            type = "object",
+            properties = mapOf(
+                "locomotion" to Schema(type = "string", enum = listOf("4-legged")),
+            ),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+      val enum = resolved.discriminatorEnums["Dinosaur"].shouldNotBeNull()
+
+      Then("digit-leading constants are prefixed with an underscore") {
+        enum.constants shouldContain "_2_LEGGED"
+        enum.constants shouldContain "_4_LEGGED"
+      }
+    }
+  }
+
   Given("a schema with oneOf inline variants") {
     val schemas = mapOf(
         "Dinosaur" to Schema(
