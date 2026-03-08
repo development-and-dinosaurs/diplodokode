@@ -237,6 +237,11 @@ class DinosaurGeneratorTest : BehaviorSpec({
         generatedFiles.find { it.name == "Dinosaur" }!!.toString() shouldContain "sealed interface Dinosaur"
       }
 
+      Then("the sealed interface should declare shared properties as abstract vals") {
+        val dinosaurCode = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+        dinosaurCode shouldContain "val name: String"
+      }
+
       Then("each variant should be a data class implementing the sealed interface") {
         generatedFiles.find { it.name == "Tyrannosaur" }!!.toString() shouldContain ": Dinosaur"
         generatedFiles.find { it.name == "Triceratops" }!!.toString() shouldContain ": Dinosaur"
@@ -250,6 +255,11 @@ class DinosaurGeneratorTest : BehaviorSpec({
         val triceratopsCode = generatedFiles.find { it.name == "Triceratops" }!!.toString()
         triceratopsCode shouldContain "override val type: Dinosaur.Type"
         triceratopsCode shouldContain "Dinosaur.Type.TRICERATOPS"
+      }
+
+      Then("each variant should override the shared interface properties") {
+        generatedFiles.find { it.name == "Tyrannosaur" }!!.toString() shouldContain "override val name: String"
+        generatedFiles.find { it.name == "Triceratops" }!!.toString() shouldContain "override val name: String"
       }
 
       Then("each variant should have its own properties") {

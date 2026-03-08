@@ -23,12 +23,13 @@ class KotlinClassGenerator {
       implementedInterfaces: List<String> = emptyList(),
       discriminatorEnum: DiscriminatorEnum? = null,
       discriminatorOverride: DiscriminatorOverride? = null,
+      interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec =
       when {
         !schema.enum.isNullOrEmpty() -> generateTopLevelEnum(name, schema)
         !schema.oneOf.isNullOrEmpty() -> generateSealedInterface(name, schema, schema.oneOf, "oneOf", discriminatorEnum)
         !schema.anyOf.isNullOrEmpty() -> generateSealedInterface(name, schema, schema.anyOf, "anyOf", discriminatorEnum)
-        else -> generateDataClass(name, schema, implementedInterfaces, discriminatorOverride)
+        else -> generateDataClass(name, schema, implementedInterfaces, discriminatorOverride, interfacePropertyNames)
       }
 
   private fun generateSealedInterface(
@@ -66,6 +67,20 @@ class KotlinClassGenerator {
       }
     }
 
+    val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
+    schema.properties
+        ?.filter { (propName, _) -> propName != discriminatorPropName }
+        ?.forEach { (propName, propSchema) ->
+          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val isNullable = !(schema.required?.contains(propName) ?: false) || propSchema.nullable == true
+          val kotlinType = resolveType(propName, propSchema, isNullable, emptyMap())
+          interfaceBuilder.addProperty(
+              PropertySpec.builder(propertyName, kotlinType)
+                  .addModifiers(KModifier.ABSTRACT)
+                  .build()
+          )
+        }
+
     variants.filter { it.ref == null }.takeIf { it.isNotEmpty() }?.let {
       interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
     }
@@ -78,6 +93,7 @@ class KotlinClassGenerator {
       schema: Schema,
       implementedInterfaces: List<String> = emptyList(),
       discriminatorOverride: DiscriminatorOverride? = null,
+      interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
     val className = name.replaceFirstChar { it.uppercase() }
     val fileBuilder = FileSpec.builder(PACKAGE, className)
@@ -121,24 +137,35 @@ class KotlinClassGenerator {
     val properties =
         schema.properties?.entries?.map { (propName, propValue) ->
           val propertyName = propName.replaceFirstChar { it.lowercase() }
-          if (propName == discriminatorOverride?.propertyName) {
-            val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
-            PropertySpec.builder(propertyName, enumType)
-                .addModifiers(KModifier.OVERRIDE)
-                .initializer(propertyName)
-                .build()
-          } else {
-            val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
-            val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
-            val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
-                .addModifiers(KModifier.PUBLIC)
-                .initializer(propertyName)
-            propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
-            if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
-              val values = propValue.items.enum.joinToString(", ")
-              propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+          when {
+            propName == discriminatorOverride?.propertyName -> {
+              val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
+              PropertySpec.builder(propertyName, enumType)
+                  .addModifiers(KModifier.OVERRIDE)
+                  .initializer(propertyName)
+                  .build()
             }
-            propertyBuilder.build()
+            propName in interfacePropertyNames -> {
+              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
+              PropertySpec.builder(propertyName, kotlinType)
+                  .addModifiers(KModifier.OVERRIDE)
+                  .initializer(propertyName)
+                  .build()
+            }
+            else -> {
+              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
+              val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
+                  .addModifiers(KModifier.PUBLIC)
+                  .initializer(propertyName)
+              propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
+              if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
+                val values = propValue.items.enum.joinToString(", ")
+                propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+              }
+              propertyBuilder.build()
+            }
           }
         } ?: emptyList()
 

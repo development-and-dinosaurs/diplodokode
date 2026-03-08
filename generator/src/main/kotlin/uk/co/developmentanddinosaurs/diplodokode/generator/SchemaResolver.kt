@@ -19,6 +19,7 @@ data class ResolvedSpec(
   val implementedInterfaces: Map<String, List<String>>,
   val discriminatorEnums: Map<String, DiscriminatorEnum>,
   val discriminatorOverrides: Map<String, DiscriminatorOverride>,
+  val interfacePropertyNames: Map<String, Set<String>>,
 )
 
 class SchemaResolver {
@@ -26,7 +27,8 @@ class SchemaResolver {
   fun resolve(schemas: Map<String, Schema>): ResolvedSpec {
     val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }
     val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas, flatSchemas)
-    return ResolvedSpec(flatSchemas, interfaceMap, enumMap, overrideMap)
+    val interfacePropertyNames = buildInterfacePropertyNames(schemas, interfaceMap)
+    return ResolvedSpec(flatSchemas, interfaceMap, enumMap, overrideMap, interfacePropertyNames)
   }
 
   private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: MutableSet<String>): Schema {
@@ -92,6 +94,18 @@ class SchemaResolver {
 
     return Triple(interfaceMap, enumMap, overrideMap)
   }
+
+  private fun buildInterfacePropertyNames(
+      rawSchemas: Map<String, Schema>,
+      interfaceMap: Map<String, List<String>>,
+  ): Map<String, Set<String>> =
+      interfaceMap.mapValues { (_, interfaces) ->
+        interfaces.flatMap { ifaceName ->
+          val ifaceSchema = rawSchemas[ifaceName] ?: return@flatMap emptyList()
+          val discriminatorPropName = ifaceSchema.discriminator?.propertyName
+          ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
+        }.toSet()
+      }.filterValues { it.isNotEmpty() }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
     discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }

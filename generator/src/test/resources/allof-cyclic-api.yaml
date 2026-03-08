@@ -18,6 +18,13 @@ components:
         - $ref: '#/components/schemas/Triceratops'
       discriminator:
         propertyName: type
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of this dinosaur
 
     Tyrannosaur:
       description: A large bipedal carnivore
