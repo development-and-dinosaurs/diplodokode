@@ -37,6 +37,9 @@ class SchemaResolver {
     val mergedProperties = mutableMapOf<String, Schema>()
     val mergedRequired = mutableListOf<String>()
 
+    schema.properties?.let { mergedProperties.putAll(it) }
+    schema.required?.let { mergedRequired.addAll(it) }
+
     schema.allOf.forEach { subSchema ->
       val resolved =
           if (subSchema.ref != null) {

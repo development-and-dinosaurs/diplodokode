@@ -99,6 +99,48 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with allOf and additional properties declared directly on the wrapper") {
+    val schemas = mapOf(
+        "Dinosaur" to Schema(
+            type = "object",
+            properties = mapOf("name" to Schema(type = "string")),
+            required = listOf("name"),
+        ),
+        "ExtendedDinosaur" to Schema(
+            properties = mapOf("favouriteFood" to Schema(type = "string")),
+            required = listOf("favouriteFood"),
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Dinosaur"),
+                Schema(
+                    type = "object",
+                    properties = mapOf("armLength" to Schema(type = "number")),
+                    required = listOf("armLength"),
+                ),
+            ),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+      val schema = resolved.schemas["ExtendedDinosaur"].shouldNotBeNull()
+
+      Then("it includes properties from the allOf entries") {
+        schema.properties!! shouldContainKey "name"
+        schema.properties shouldContainKey "armLength"
+      }
+
+      Then("it includes properties declared directly on the wrapper schema") {
+        schema.properties!! shouldContainKey "favouriteFood"
+      }
+
+      Then("it merges required fields from the wrapper and all allOf entries") {
+        schema.required!! shouldContain "name"
+        schema.required shouldContain "armLength"
+        schema.required shouldContain "favouriteFood"
+      }
+    }
+  }
+
   Given("a schema with allOf where the same required field appears in multiple items") {
     val schemas = mapOf(
         "Thing" to Schema(
