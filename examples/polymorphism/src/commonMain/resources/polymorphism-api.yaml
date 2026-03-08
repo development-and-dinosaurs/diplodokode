@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: Polymorphism API
+  version: "1.0"
+
+components:
+  schemas:
+
+    # oneOf — sealed interface with discriminator
+    # Dinosaur is the parent type. Exactly one variant must be used.
+    Dinosaur:
+      description: A dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+
+    Tyrannosaur:
+      type: object
+      description: A large bipedal carnivore
+      required:
+        - type
+        - name
+        - armLength
+      properties:
+        type:
+          type: string
+          enum: [tyrannosaur]
+        name:
+          type: string
+          description: The name of this tyrannosaur
+        armLength:
+          type: number
+          description: Arm length in metres
+
+    Triceratops:
+      type: object
+      description: A large quadrupedal herbivore with three horns
+      required:
+        - type
+        - name
+        - hornCount
+      properties:
+        type:
+          type: string
+          enum: [triceratops]
+        name:
+          type: string
+          description: The name of this triceratops
+        hornCount:
+          type: integer
+          description: Number of horns
+
+    # allOf — flat composition (no IS-A relationship)
+    # AuditInfo is a reusable mixin for any record that needs provenance metadata.
+    # DinosaurMeasurements captures physical stats about a specimen.
+    # DinosaurProfile composes both: it is not "an AuditInfo" or "a DinosaurMeasurements".
+    AuditInfo:
+      type: object
+      description: Provenance metadata for any recorded entry
+      required:
+        - recordedBy
+        - recordedAt
+      properties:
+        recordedBy:
+          type: string
+          description: Name of the researcher who recorded this entry
+        recordedAt:
+          type: string
+          description: When this entry was recorded (ISO 8601)
+
+    DinosaurMeasurements:
+      type: object
+      description: Physical measurements for a dinosaur specimen
+      required:
+        - heightMetres
+        - weightKg
+        - topSpeedKph
+      properties:
+        heightMetres:
+          type: number
+          description: Height of the specimen in metres
+        weightKg:
+          type: number
+          description: Weight of the specimen in kilograms
+        topSpeedKph:
+          type: number
+          description: Estimated top speed in kilometres per hour
+
+    DinosaurProfile:
+      description: A recorded profile for a dinosaur specimen, combining provenance metadata with physical measurements
+      allOf:
+        - $ref: '#/components/schemas/AuditInfo'
+        - $ref: '#/components/schemas/DinosaurMeasurements'
