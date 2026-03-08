@@ -49,6 +49,30 @@ class DiplodokodePluginFunctionalTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a project with custom configuration") {
+    val configuredProjectDir = File("build/tmp/testKit-configured")
+    configuredProjectDir.deleteRecursively()
+    configuredProjectDir.mkdirs()
+
+    copyTestResourceFile("test-build-configured.gradle.kts", configuredProjectDir.resolve("build.gradle.kts"))
+    copyTestResourceFile("test-settings.gradle.kts", configuredProjectDir.resolve("settings.gradle.kts"))
+    copyTestResourceFile("dinosaur-api.yaml", configuredProjectDir.resolve("src/main/resources/dinosaur-api.yaml"))
+
+    When("the generateDiplodokode task runs") {
+      GradleRunner.create()
+        .withProjectDir(configuredProjectDir)
+        .withArguments("generateDiplodokode", "--stacktrace")
+        .withPluginClasspath()
+        .build()
+
+      Then("the generated file uses the configured package name") {
+        val generatedFile = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt")
+        generatedFile.shouldExist()
+        generatedFile.readText() shouldContain "package com.example.dinosaurs.models"
+      }
+    }
+  }
 })
 
 /**

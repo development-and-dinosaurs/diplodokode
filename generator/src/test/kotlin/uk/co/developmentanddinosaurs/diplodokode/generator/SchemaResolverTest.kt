@@ -9,7 +9,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class SchemaResolverTest : BehaviorSpec({
 
-  val resolver = SchemaResolver()
+  val resolver = SchemaResolver(GeneratorConfig())
 
   Given("a schema without allOf") {
     val schema = Schema(type = "object", properties = mapOf("name" to Schema(type = "string")))

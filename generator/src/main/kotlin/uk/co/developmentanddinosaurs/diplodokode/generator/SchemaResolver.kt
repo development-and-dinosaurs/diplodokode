@@ -22,7 +22,7 @@ data class ResolvedSpec(
   val interfacePropertyNames: Map<String, Set<String>>,
 )
 
-class SchemaResolver {
+class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
 
   fun resolve(schemas: Map<String, Schema>): ResolvedSpec {
     val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }

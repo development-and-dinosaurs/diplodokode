@@ -4,10 +4,10 @@ import com.squareup.kotlinpoet.FileSpec
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.OpenApiSpecParser
 import java.io.File
 
-class DiplodokodeGenerator {
+class DiplodokodeGenerator(config: GeneratorConfig = GeneratorConfig()) {
   private val parser = OpenApiSpecParser()
-  private val resolver = SchemaResolver()
-  private val classGenerator = KotlinClassGenerator()
+  private val resolver = SchemaResolver(config)
+  private val classGenerator = KotlinClassGenerator(config)
 
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)

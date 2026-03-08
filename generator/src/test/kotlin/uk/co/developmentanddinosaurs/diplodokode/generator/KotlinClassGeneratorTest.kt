@@ -7,7 +7,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class KotlinClassGeneratorTest : BehaviorSpec({
 
-  val generator = KotlinClassGenerator()
+  val generator = KotlinClassGenerator(GeneratorConfig())
 
   Given("a schema with required and optional properties") {
     val schema = Schema(

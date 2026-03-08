@@ -9,7 +9,7 @@ import java.io.File
 
 class DinosaurGeneratorTest : BehaviorSpec({
   
-  val generator = DiplodokodeGenerator()
+  val generator = DiplodokodeGenerator(GeneratorConfig())
 
   Given("an OpenAPI spec with a dinosaur schema") {
     val openApiSpec = File("src/test/resources/dinosaur-api.yaml")
@@ -325,8 +325,7 @@ class DinosaurGeneratorTest : BehaviorSpec({
 
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
-    val generator = DiplodokodeGenerator()
-    
+
     When("the generator processes the empty spec") {
       val generatedFiles = generator.generateFromSpec(openApiSpec)
       

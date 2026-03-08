@@ -13,9 +13,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
-private const val PACKAGE = "uk.co.developmentanddinosaurs.diplodokode.generated"
-
-class KotlinClassGenerator {
+class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
 
   fun generateFromSchema(
       name: String,
@@ -48,7 +46,7 @@ class KotlinClassGenerator {
     interfaceBuilder.addKdoc(kdoc)
 
     if (discriminatorEnum != null) {
-      val enumType = ClassName(PACKAGE, interfaceName, "Type")
+      val enumType = ClassName(config.packageName, interfaceName, "Type")
       val enumBuilder = TypeSpec.enumBuilder("Type")
       discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }
       interfaceBuilder.addType(enumBuilder.build())
@@ -89,7 +87,7 @@ class KotlinClassGenerator {
       interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
     }
 
-    return FileSpec.builder(PACKAGE, interfaceName).addType(interfaceBuilder.build()).build()
+    return FileSpec.builder(config.packageName, interfaceName).addType(interfaceBuilder.build()).build()
   }
 
   private fun generateDataClass(
@@ -100,7 +98,7 @@ class KotlinClassGenerator {
       interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
     val className = name.replaceFirstChar { it.uppercase() }
-    val fileBuilder = FileSpec.builder(PACKAGE, className)
+    val fileBuilder = FileSpec.builder(config.packageName, className)
 
     if (hasUuidFormat(schema)) {
       fileBuilder.addAnnotation(
@@ -121,14 +119,14 @@ class KotlinClassGenerator {
             ?.associate { (propName, propValue) ->
               val enumName = propName.replaceFirstChar { it.uppercase() }
               fileBuilder.addType(generateEnumClass(enumName, propValue.enum!!))
-              propName to ClassName(PACKAGE, enumName)
+              propName to ClassName(config.packageName, enumName)
             } ?: emptyMap()
 
     val constructorParams =
         schema.properties?.entries?.map { (propName, propValue) ->
           val propertyName = propName.replaceFirstChar { it.lowercase() }
           if (propName == discriminatorOverride?.propertyName) {
-            val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
+            val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
             ParameterSpec.builder(propertyName, enumType)
                 .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
                 .build()
@@ -144,7 +142,7 @@ class KotlinClassGenerator {
           val propertyName = propName.replaceFirstChar { it.lowercase() }
           when {
             propName == discriminatorOverride?.propertyName -> {
-              val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
+              val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
               PropertySpec.builder(propertyName, enumType)
                   .addModifiers(KModifier.OVERRIDE)
                   .initializer(propertyName)
@@ -181,7 +179,7 @@ class KotlinClassGenerator {
             .addProperties(properties)
 
     implementedInterfaces.forEach { iface ->
-      dataClassBuilder.addSuperinterface(ClassName(PACKAGE, iface))
+      dataClassBuilder.addSuperinterface(ClassName(config.packageName, iface))
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
@@ -189,7 +187,7 @@ class KotlinClassGenerator {
 
   private fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
     val enumName = name.replaceFirstChar { it.uppercase() }
-    return FileSpec.builder(PACKAGE, enumName)
+    return FileSpec.builder(config.packageName, enumName)
         .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
         .build()
   }
@@ -208,7 +206,7 @@ class KotlinClassGenerator {
   ): TypeName {
     val baseType =
         when {
-          propValue.ref != null -> ClassName(PACKAGE, propValue.ref.substringAfterLast("/"))
+          propValue.ref != null -> ClassName(config.packageName, propValue.ref.substringAfterLast("/"))
           propValue.type == "array" -> {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
@@ -220,7 +218,7 @@ class KotlinClassGenerator {
 
   private fun resolveItemType(items: Schema): TypeName =
       when {
-        items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
+        items.ref != null -> ClassName(config.packageName, items.ref.substringAfterLast("/"))
         items.type == "array" -> {
           val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
           List::class.asTypeName().parameterizedBy(elementType)
