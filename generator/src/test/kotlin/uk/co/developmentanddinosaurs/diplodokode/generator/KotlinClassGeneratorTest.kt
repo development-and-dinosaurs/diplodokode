@@ -670,4 +670,54 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a schema with required and optional properties and the AllNullable strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "weight" to Schema(type = "number"),
+      )
+    )
+    val allNullableGenerator = KotlinClassGenerator(GeneratorConfig(nullabilityStrategy = AllNullableStrategy()))
+
+    When("the generator produces a data class") {
+      val code = allNullableGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("required properties are also nullable") {
+        code shouldContain "val name: String?"
+      }
+
+      Then("optional properties are nullable") {
+        code shouldContain "val weight: Double?"
+      }
+    }
+  }
+
+  Given("a schema with required and optional properties and the AllNonNullable strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "weight" to Schema(type = "number"),
+      )
+    )
+    val allNonNullableGenerator = KotlinClassGenerator(GeneratorConfig(nullabilityStrategy = AllNonNullableStrategy()))
+
+    When("the generator produces a data class") {
+      val code = allNonNullableGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("required properties are non-nullable") {
+        code shouldContain "val name: String"
+        code shouldNotContain "val name: String?"
+      }
+
+      Then("optional properties are also non-nullable") {
+        code shouldContain "val weight: Double"
+        code shouldNotContain "val weight: Double?"
+      }
+    }
+  }
 })

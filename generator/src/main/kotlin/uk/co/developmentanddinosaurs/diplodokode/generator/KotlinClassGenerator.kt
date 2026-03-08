@@ -76,7 +76,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
           val propertyName = propName.replaceFirstChar { it.lowercase() }
-          val isNullable = !(schema.required?.contains(propName) ?: false) || propSchema.nullable == true
+          val isNullable = config.nullabilityStrategy.isNullable(propName, propSchema, schema.required?.toSet() ?: emptySet())
           val kotlinType = resolveType(propName, propSchema, isNullable, emptyMap())
           val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
           if (!propSchema.enum.isNullOrEmpty()) {
@@ -125,7 +125,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
                 .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
                 .build()
           } else {
-            val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+            val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
             val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
             ParameterSpec.builder(propertyName, kotlinType).build()
           }
@@ -143,7 +143,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
                   .build()
             }
             propName in interfacePropertyNames -> {
-              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               PropertySpec.builder(propertyName, kotlinType)
                   .addModifiers(KModifier.OVERRIDE)
@@ -151,7 +151,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
                   .build()
             }
             else -> {
-              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
                   .addModifiers(KModifier.PUBLIC)

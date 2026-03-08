@@ -15,4 +15,7 @@ diplodokode {
   typeMappings {
     useJava()
   }
+  nullability {
+    useAllNonNullable()
+  }
 }

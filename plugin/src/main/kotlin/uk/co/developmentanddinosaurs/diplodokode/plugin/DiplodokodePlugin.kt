@@ -13,6 +13,8 @@ class DiplodokodePlugin : Plugin<Project> {
       task.description = "Generate Kotlin models from OpenAPI specifications"
       task.inputFile.set(extension.inputFile.map { project.layout.projectDirectory.file(it) })
       task.outputDir.set(extension.outputDir.map { project.layout.projectDirectory.dir(it) })
+
+      task.nullabilityMode.set(extension.nullabilityConfig.mode)
       task.packageName.set(extension.packageName)
       task.typeMappingPreset.set(extension.typeMappingConfig.preset)
       task.typeMappingFormatOverrides.set(extension.typeMappingConfig.formatOverrides)

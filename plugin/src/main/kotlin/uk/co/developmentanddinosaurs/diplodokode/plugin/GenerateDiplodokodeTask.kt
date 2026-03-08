@@ -13,10 +13,14 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import uk.co.developmentanddinosaurs.diplodokode.generator.AllNonNullableStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.AllNullableStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
 import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
 import uk.co.developmentanddinosaurs.diplodokode.generator.JavaTypeMappingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinMultiplatformTypeMappingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.NullabilityStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.SpecDrivenNullabilityStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.TypeMappingStrategy
 
 @CacheableTask
@@ -41,11 +45,15 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   @get:Input
   abstract val typeMappingBaseOverrides: MapProperty<String, String>
 
+  @get:Input
+  abstract val nullabilityMode: Property<String>
+
   @TaskAction
   fun generate() {
     val config = GeneratorConfig(
         packageName = packageName.get(),
         typeMappingStrategy = buildTypeMappingStrategy(),
+        nullabilityStrategy = buildNullabilityStrategy(),
     )
     val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile
@@ -80,6 +88,12 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
 
     return if (formatOverrides.isEmpty() && baseOverrides.isEmpty()) base
     else base.withOverrides(formatOverrides, baseOverrides)
+  }
+
+  private fun buildNullabilityStrategy(): NullabilityStrategy = when (nullabilityMode.get()) {
+    "all-nullable"     -> AllNullableStrategy()
+    "all-non-nullable" -> AllNonNullableStrategy()
+    else               -> SpecDrivenNullabilityStrategy()
   }
 
   private fun String.toClassName(): ClassName =

@@ -78,6 +78,11 @@ class DiplodokodePluginFunctionalTest : BehaviorSpec({
         content shouldContain "java.time.Instant"
         content shouldNotContain "kotlinx.datetime"
       }
+
+      Then("the generated file makes all properties non-nullable") {
+        val content = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt").readText()
+        content shouldNotContain "?"
+      }
     }
   }
 })

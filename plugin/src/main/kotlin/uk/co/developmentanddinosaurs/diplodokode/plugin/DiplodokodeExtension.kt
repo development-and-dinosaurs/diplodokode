@@ -15,6 +15,8 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   internal val typeMappingConfig: TypeMappingsExtension = objects.newInstance(TypeMappingsExtension::class.java)
 
+  internal val nullabilityConfig: NullabilityExtension = objects.newInstance(NullabilityExtension::class.java)
+
   fun inputFile(path: String) {
     inputFile.set(path)
   }
@@ -29,6 +31,10 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   fun typeMappings(action: TypeMappingsExtension.() -> Unit) {
     action(typeMappingConfig)
+  }
+
+  fun nullability(action: NullabilityExtension.() -> Unit) {
+    action(nullabilityConfig)
   }
 }
 
@@ -56,5 +62,22 @@ abstract class TypeMappingsExtension @Inject constructor(objects: ObjectFactory)
 
   fun base(type: String, fqcn: String) {
     baseOverrides.put(type, fqcn)
+  }
+}
+
+abstract class NullabilityExtension @Inject constructor(objects: ObjectFactory) {
+
+  internal val mode: Property<String> = objects.property(String::class.java).convention("spec-driven")
+
+  fun useSpecDriven() {
+    mode.set("spec-driven")
+  }
+
+  fun useAllNullable() {
+    mode.set("all-nullable")
+  }
+
+  fun useAllNonNullable() {
+    mode.set("all-non-nullable")
   }
 }
