@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Separator Names API
+  version: "1.0"
+
+components:
+  schemas:
+    fossil-record:
+      type: object
+      required:
+        - name
+        - specimen
+      properties:
+        name:
+          type: string
+        specimen:
+          $ref: '#/components/schemas/bone-specimen'
+    bone-specimen:
+      type: object
+      required:
+        - boneName
+      properties:
+        boneName:
+          type: string
+    pack-hunter:
+      oneOf:
+        - $ref: '#/components/schemas/veloci-raptor'
+        - $ref: '#/components/schemas/troo-don'
+      discriminator:
+        propertyName: type
+    veloci-raptor:
+      type: object
+      required:
+        - type
+        - packSize
+      properties:
+        type:
+          type: string
+          enum:
+            - velociraptor
+        packSize:
+          type: integer
+    troo-don:
+      type: object
+      required:
+        - type
+        - intelligenceRating
+      properties:
+        type:
+          type: string
+          enum:
+            - troodon
+        intelligenceRating:
+          type: integer
+
+paths: {}

@@ -120,7 +120,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
         schema.properties?.entries?.map { (propName, propValue) ->
           val propertyName = config.namingStrategy.propertyName(propName)
           if (propName == discriminatorOverride?.propertyName) {
-            val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
+            val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
             ParameterSpec.builder(propertyName, enumType)
                 .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
                 .build()
@@ -136,7 +136,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
           val propertyName = config.namingStrategy.propertyName(propName)
           when {
             propName == discriminatorOverride?.propertyName -> {
-              val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
+              val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
               PropertySpec.builder(propertyName, enumType)
                   .addModifiers(KModifier.OVERRIDE)
                   .initializer(propertyName)
@@ -183,7 +183,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
             .addProperties(properties)
 
     implementedInterfaces.forEach { iface ->
-      dataClassBuilder.addSuperinterface(ClassName(config.packageName, iface))
+      dataClassBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
@@ -210,7 +210,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
   ): TypeName {
     val baseType =
         when {
-          propValue.ref != null -> ClassName(config.packageName, propValue.ref.substringAfterLast("/"))
+          propValue.ref != null -> ClassName(config.packageName, config.namingStrategy.className(propValue.ref.substringAfterLast("/")))
           propValue.type == "array" -> {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
@@ -222,7 +222,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
 
   private fun resolveItemType(items: Schema): TypeName =
       when {
-        items.ref != null -> ClassName(config.packageName, items.ref.substringAfterLast("/"))
+        items.ref != null -> ClassName(config.packageName, config.namingStrategy.className(items.ref.substringAfterLast("/")))
         items.type == "array" -> {
           val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
           List::class.asTypeName().parameterizedBy(elementType)

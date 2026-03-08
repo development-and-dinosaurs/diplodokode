@@ -323,6 +323,46 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with separator-containing schema names") {
+    val openApiSpec = File("src/test/resources/separator-names-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("hyphenated schema names are transformed to PascalCase class names") {
+        generatedFiles.find { it.name == "FossilRecord" } shouldNotBe null
+        generatedFiles.find { it.name == "BoneSpecimen" } shouldNotBe null
+      }
+
+      Then("\$ref to a hyphenated schema resolves to the transformed Kotlin type") {
+        val code = generatedFiles.find { it.name == "FossilRecord" }!!.toString()
+        code shouldContain "val specimen: BoneSpecimen"
+        code shouldNotContain "bone-specimen"
+      }
+
+      Then("hyphenated oneOf parent becomes a sealed interface with a PascalCase name") {
+        generatedFiles.find { it.name == "PackHunter" }!!.toString() shouldContain "sealed interface PackHunter"
+      }
+
+      Then("hyphenated variants implement the sealed interface using its transformed name") {
+        val velociRaptorCode = generatedFiles.find { it.name == "VelociRaptor" }!!.toString()
+        velociRaptorCode shouldContain "data class VelociRaptor"
+        velociRaptorCode shouldContain ": PackHunter"
+        velociRaptorCode shouldNotContain "pack-hunter"
+
+        val trooDonCode = generatedFiles.find { it.name == "TrooDon" }!!.toString()
+        trooDonCode shouldContain "data class TrooDon"
+        trooDonCode shouldContain ": PackHunter"
+      }
+
+      Then("the discriminator enum type on a variant uses the transformed interface name") {
+        val velociRaptorCode = generatedFiles.find { it.name == "VelociRaptor" }!!.toString()
+        velociRaptorCode shouldContain "override val type: PackHunter.Type"
+        velociRaptorCode shouldNotContain "pack-hunter"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
 
