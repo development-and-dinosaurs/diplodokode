@@ -593,4 +593,81 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a schema with a date-time property and the KMP type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val kmpGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = KotlinMultiplatformTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = kmpGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use kotlinx.datetime.Instant") {
+        code shouldContain "kotlinx.datetime.Instant"
+        code shouldNotContain "java.time"
+      }
+    }
+  }
+
+  Given("a schema with a date-time property and the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val javaGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = javaGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use java.time.Instant") {
+        code shouldContain "java.time.Instant"
+        code shouldNotContain "kotlinx.datetime"
+      }
+    }
+  }
+
+  Given("a schema with a uuid property and the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("id"),
+      properties = mapOf("id" to Schema(type = "string", format = "uuid")),
+    )
+    val javaGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = javaGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use java.util.UUID") {
+        code shouldContain "java.util.UUID"
+      }
+
+      Then("it should not add the kotlin.uuid OptIn annotation") {
+        code shouldNotContain "@file:OptIn(ExperimentalUuidApi::class)"
+      }
+    }
+  }
+
+  Given("a schema with a date-time property and the KMP strategy with a format override") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val overrideStrategy = KotlinMultiplatformTypeMappingStrategy()
+        .withOverrides(formatOverrides = mapOf("date-time" to com.squareup.kotlinpoet.ClassName("java.time", "Instant")))
+    val overrideGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = overrideStrategy))
+
+    When("the generator produces a data class") {
+      val code = overrideGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the override type wins over the strategy default") {
+        code shouldContain "java.time.Instant"
+        code shouldNotContain "kotlinx.datetime"
+      }
+    }
+  }
 })

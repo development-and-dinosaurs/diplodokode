@@ -6,12 +6,15 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
+
+private val KOTLIN_UUID = ClassName("kotlin.uuid", "Uuid")
 
 class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
 
@@ -100,15 +103,6 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     val className = name.replaceFirstChar { it.uppercase() }
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    if (hasUuidFormat(schema)) {
-      fileBuilder.addAnnotation(
-          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
-              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
-              .build()
-      )
-    }
-
     val enumClassNames =
         schema.properties
             ?.entries
@@ -172,6 +166,16 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
           }
         } ?: emptyList()
 
+    val allTypes = constructorParams.map { it.type } + properties.map { it.type }
+    if (allTypes.any { containsKotlinUuid(it) }) {
+      fileBuilder.addAnnotation(
+          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
+              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
+              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
+              .build()
+      )
+    }
+
     val dataClassBuilder =
         TypeSpec.classBuilder(className)
             .addModifiers(KModifier.DATA)
@@ -227,44 +231,12 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
       }
 
   private fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
-      formatMappings[openApiType]?.get(format)
-          ?: baseMappings[openApiType]
-          ?: String::class.asTypeName()
+      openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()
 
-  private fun hasUuidFormat(schema: Schema): Boolean =
-      schema.properties?.values?.any { usesUuid(it) } == true
-
-  private fun usesUuid(prop: Schema): Boolean =
-      (prop.type == "string" && prop.format == "uuid") ||
-          (prop.type == "array" && prop.items != null && usesUuid(prop.items))
-
-  companion object {
-    private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
-        "string" to mapOf(
-            "date-time" to ClassName("kotlinx.datetime", "Instant"),
-            "date"      to ClassName("kotlinx.datetime", "LocalDate"),
-            "time"      to ClassName("kotlinx.datetime", "LocalTime"),
-            "duration"  to ClassName("kotlin.time", "Duration"),
-            "uuid"      to ClassName("kotlin.uuid", "Uuid"),
-            "uri"       to String::class.asTypeName(),
-            "byte"      to ByteArray::class.asTypeName(),
-            "binary"    to ByteArray::class.asTypeName(),
-        ),
-        "integer" to mapOf(
-            "int64" to Long::class.asTypeName(),
-        ),
-        "number" to mapOf(
-            "float" to Float::class.asTypeName(),
-        ),
-    )
-
-    private val baseMappings: Map<String, TypeName> = mapOf(
-        "string"  to String::class.asTypeName(),
-        "integer" to Int::class.asTypeName(),
-        "number"  to Double::class.asTypeName(),
-        "boolean" to Boolean::class.asTypeName(),
-        "array"   to List::class.asTypeName(),
-        "object"  to Any::class.asTypeName(),
-    )
-  }
+  private fun containsKotlinUuid(type: TypeName): Boolean =
+      when {
+        type.copy(nullable = false) == KOTLIN_UUID -> true
+        type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
+        else -> false
+      }
 }

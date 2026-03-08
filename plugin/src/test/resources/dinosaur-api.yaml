@@ -24,6 +24,10 @@ components:
         isCarnivore:
           type: boolean
           description: Whether the dinosaur is carnivore
+        discoveredAt:
+          type: string
+          format: date-time
+          description: When the dinosaur was discovered
       required:
         - name
         - species

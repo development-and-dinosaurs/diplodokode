@@ -14,6 +14,9 @@ class DiplodokodePlugin : Plugin<Project> {
       task.inputFile.set(extension.inputFile.map { project.layout.projectDirectory.file(it) })
       task.outputDir.set(extension.outputDir.map { project.layout.projectDirectory.dir(it) })
       task.packageName.set(extension.packageName)
+      task.typeMappingPreset.set(extension.typeMappingConfig.preset)
+      task.typeMappingFormatOverrides.set(extension.typeMappingConfig.formatOverrides)
+      task.typeMappingBaseOverrides.set(extension.typeMappingConfig.baseOverrides)
     }
   }
 }

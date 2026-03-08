@@ -12,4 +12,7 @@ diplodokode {
   inputFile.set("src/main/resources/dinosaur-api.yaml")
   outputDir.set("build/generated/kotlin")
   packageName.set("com.example.dinosaurs.models")
+  typeMappings {
+    useJava()
+  }
 }

@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.file.shouldExist
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import java.io.File
@@ -70,6 +71,12 @@ class DiplodokodePluginFunctionalTest : BehaviorSpec({
         val generatedFile = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt")
         generatedFile.shouldExist()
         generatedFile.readText() shouldContain "package com.example.dinosaurs.models"
+      }
+
+      Then("the generated file uses Java types for format mappings") {
+        val content = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt").readText()
+        content shouldContain "java.time.Instant"
+        content shouldNotContain "kotlinx.datetime"
       }
     }
   }
