@@ -83,6 +83,12 @@ class DiplodokodePluginFunctionalTest : BehaviorSpec({
         val content = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt").readText()
         content shouldNotContain "?"
       }
+
+      Then("the generated file preserves property names from the spec") {
+        val content = File(configuredProjectDir, "build/generated/kotlin/com/example/dinosaurs/models/Dinosaur.kt").readText()
+        content shouldContain "val isCarnivore"
+        content shouldContain "val discoveredAt"
+      }
     }
   }
 })

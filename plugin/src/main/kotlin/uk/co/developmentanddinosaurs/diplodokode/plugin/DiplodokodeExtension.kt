@@ -13,9 +13,11 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   val packageName: Property<String> = objects.property(String::class.java).convention("uk.co.developmentanddinosaurs.diplodokode.generated")
 
-  internal val typeMappingConfig: TypeMappingsExtension = objects.newInstance(TypeMappingsExtension::class.java)
+  internal val namingConfig: NamingExtension = objects.newInstance(NamingExtension::class.java)
 
   internal val nullabilityConfig: NullabilityExtension = objects.newInstance(NullabilityExtension::class.java)
+
+  internal val typeMappingConfig: TypeMappingsExtension = objects.newInstance(TypeMappingsExtension::class.java)
 
   fun inputFile(path: String) {
     inputFile.set(path)
@@ -29,12 +31,16 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
     packageName.set(name)
   }
 
-  fun typeMappings(action: TypeMappingsExtension.() -> Unit) {
-    action(typeMappingConfig)
+  fun naming(action: NamingExtension.() -> Unit) {
+    action(namingConfig)
   }
 
   fun nullability(action: NullabilityExtension.() -> Unit) {
     action(nullabilityConfig)
+  }
+
+  fun typeMappings(action: TypeMappingsExtension.() -> Unit) {
+    action(typeMappingConfig)
   }
 }
 
@@ -79,5 +85,18 @@ abstract class NullabilityExtension @Inject constructor(objects: ObjectFactory) 
 
   fun useAllNonNullable() {
     mode.set("all-non-nullable")
+  }
+}
+
+abstract class NamingExtension @Inject constructor(objects: ObjectFactory) {
+
+  internal val mode: Property<String> = objects.property(String::class.java).convention("default")
+
+  fun useDefault() {
+    mode.set("default")
+  }
+
+  fun usePreserve() {
+    mode.set("preserve")
   }
 }

@@ -85,7 +85,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       refVariants.forEach { variantName ->
         val variantSchema = flatSchemas[variantName] ?: return@forEach
         if (!variantSchema.properties.isNullOrEmpty() && variantSchema.properties.containsKey(discriminator.propertyName)) {
-          val constant = sanitiseEnumConstant(discriminatorValueFor(variantName, discriminator, variantSchema))
+          val constant = config.namingStrategy.enumConstant(discriminatorValueFor(variantName, discriminator, variantSchema))
           constants.add(constant)
           stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant)
         }
@@ -115,11 +115,6 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
           ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
         }.toSet()
       }.filterValues { it.isNotEmpty() }
-
-  private fun sanitiseEnumConstant(value: String): String {
-    val sanitised = value.replace(Regex("[^A-Za-z0-9_]"), "_").uppercase()
-    return if (sanitised.first().isDigit()) "_$sanitised" else sanitised
-  }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
     discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }

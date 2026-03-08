@@ -17,6 +17,7 @@ class GenerateDiplodokodeTaskTest : BehaviorSpec({
       task.inputFile.set(specFile)
       task.outputDir.set(outputDir)
 
+      task.namingMode.set("default")
       task.nullabilityMode.set("spec-driven")
       task.packageName.set("uk.co.developmentanddinosaurs.diplodokode.generated")
       task.typeMappingPreset.set("kmp")

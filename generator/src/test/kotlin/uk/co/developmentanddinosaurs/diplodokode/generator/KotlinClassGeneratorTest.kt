@@ -720,4 +720,55 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a schema with mixed-case and separator names using the Preserve naming strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("SpeciesName"),
+      properties = mapOf(
+        "SpeciesName" to Schema(type = "string"),
+        "content-type" to Schema(type = "string"),
+        "diet_type" to Schema(type = "string", enum = listOf("carnivore", "herbivore")),
+      )
+    )
+    val preserveGenerator = KotlinClassGenerator(GeneratorConfig(namingStrategy = PreserveNamingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = preserveGenerator.generateFromSchema("tyrannosaur", schema).toString()
+
+      Then("the class name is preserved as-is") {
+        code shouldContain "data class tyrannosaur"
+      }
+
+      Then("property names are preserved as-is") {
+        code shouldContain "val SpeciesName: String"
+      }
+
+      Then("hyphenated property names are backtick-escaped by KotlinPoet") {
+        code shouldContain "`content-type`"
+      }
+
+      Then("inline enum constants preserve their original case") {
+        code shouldContain "carnivore"
+        code shouldNotContain "CARNIVORE"
+      }
+    }
+  }
+
+  Given("a schema with a separator-containing property name using the Default naming strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("content-type"),
+      properties = mapOf("content-type" to Schema(type = "string")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the property name is converted to camelCase") {
+        code shouldContain "val contentType: String"
+        code shouldNotContain "`content-type`"
+      }
+    }
+  }
 })

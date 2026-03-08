@@ -40,7 +40,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
       keyword: String,
       discriminatorEnum: DiscriminatorEnum?,
   ): FileSpec {
-    val interfaceName = name.replaceFirstChar { it.uppercase() }
+    val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
 
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
@@ -75,7 +75,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     schema.properties
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val propertyName = config.namingStrategy.propertyName(propName)
           val isNullable = config.nullabilityStrategy.isNullable(propName, propSchema, schema.required?.toSet() ?: emptySet())
           val kotlinType = resolveType(propName, propSchema, isNullable, emptyMap())
           val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
@@ -100,7 +100,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
       discriminatorOverride: DiscriminatorOverride? = null,
       interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
-    val className = name.replaceFirstChar { it.uppercase() }
+    val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
     val enumClassNames =
@@ -111,14 +111,14 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
                   propName !in interfacePropertyNames
             }
             ?.associate { (propName, propValue) ->
-              val enumName = propName.replaceFirstChar { it.uppercase() }
+              val enumName = config.namingStrategy.className(propName)
               fileBuilder.addType(generateEnumClass(enumName, propValue.enum!!))
               propName to ClassName(config.packageName, enumName)
             } ?: emptyMap()
 
     val constructorParams =
         schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val propertyName = config.namingStrategy.propertyName(propName)
           if (propName == discriminatorOverride?.propertyName) {
             val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
             ParameterSpec.builder(propertyName, enumType)
@@ -133,7 +133,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
 
     val properties =
         schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val propertyName = config.namingStrategy.propertyName(propName)
           when {
             propName == discriminatorOverride?.propertyName -> {
               val enumType = ClassName(config.packageName, discriminatorOverride.interfaceName, "Type")
@@ -190,7 +190,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
   }
 
   private fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
-    val enumName = name.replaceFirstChar { it.uppercase() }
+    val enumName = config.namingStrategy.className(name)
     return FileSpec.builder(config.packageName, enumName)
         .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
         .build()
@@ -198,7 +198,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
 
   private fun generateEnumClass(name: String, values: List<String>): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
-    values.forEach { enumBuilder.addEnumConstant(it.uppercase()) }
+    values.forEach { enumBuilder.addEnumConstant(config.namingStrategy.enumConstant(it)) }
     return enumBuilder.build()
   }
 

@@ -15,11 +15,14 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import uk.co.developmentanddinosaurs.diplodokode.generator.AllNonNullableStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.AllNullableStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.DefaultNamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
 import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
 import uk.co.developmentanddinosaurs.diplodokode.generator.JavaTypeMappingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinMultiplatformTypeMappingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.NamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.NullabilityStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.PreserveNamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.SpecDrivenNullabilityStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.TypeMappingStrategy
 
@@ -46,14 +49,18 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   abstract val typeMappingBaseOverrides: MapProperty<String, String>
 
   @get:Input
+  abstract val namingMode: Property<String>
+
+  @get:Input
   abstract val nullabilityMode: Property<String>
 
   @TaskAction
   fun generate() {
     val config = GeneratorConfig(
+        namingStrategy = buildNamingStrategy(),
+        nullabilityStrategy = buildNullabilityStrategy(),
         packageName = packageName.get(),
         typeMappingStrategy = buildTypeMappingStrategy(),
-        nullabilityStrategy = buildNullabilityStrategy(),
     )
     val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile
@@ -88,6 +95,11 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
 
     return if (formatOverrides.isEmpty() && baseOverrides.isEmpty()) base
     else base.withOverrides(formatOverrides, baseOverrides)
+  }
+
+  private fun buildNamingStrategy(): NamingStrategy = when (namingMode.get()) {
+    "preserve" -> PreserveNamingStrategy()
+    else       -> DefaultNamingStrategy()
   }
 
   private fun buildNullabilityStrategy(): NullabilityStrategy = when (nullabilityMode.get()) {
