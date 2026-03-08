@@ -90,8 +90,8 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
       else   -> KotlinMultiplatformTypeMappingStrategy()
     }
 
-    val formatOverrides = typeMappingFormatOverrides.get().mapValues { (_, fqcn) -> fqcn.toClassName() }
-    val baseOverrides = typeMappingBaseOverrides.get().mapValues { (_, fqcn) -> fqcn.toClassName() }
+    val formatOverrides = typeMappingFormatOverrides.get().mapValues { (_, fqcn) -> ClassName.bestGuess(fqcn) }
+    val baseOverrides = typeMappingBaseOverrides.get().mapValues { (_, fqcn) -> ClassName.bestGuess(fqcn) }
 
     return if (formatOverrides.isEmpty() && baseOverrides.isEmpty()) base
     else base.withOverrides(formatOverrides, baseOverrides)
@@ -108,6 +108,4 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
     else               -> SpecDrivenNullabilityStrategy()
   }
 
-  private fun String.toClassName(): ClassName =
-      ClassName(substringBeforeLast("."), substringAfterLast("."))
 }
