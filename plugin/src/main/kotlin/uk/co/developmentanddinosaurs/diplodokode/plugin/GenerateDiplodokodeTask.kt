@@ -1,15 +1,30 @@
 package uk.co.developmentanddinosaurs.diplodokode.plugin
 
+import com.squareup.kotlinpoet.ClassName
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import uk.co.developmentanddinosaurs.diplodokode.generator.AllNonNullableStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.AllNullableStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.DefaultNamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
+import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
+import uk.co.developmentanddinosaurs.diplodokode.generator.JavaTypeMappingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinMultiplatformTypeMappingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.NamingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.NullabilityStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.PreserveNamingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.SpecDrivenNullabilityStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.TypeMappingStrategy
 
 @CacheableTask
 abstract class GenerateDiplodokodeTask : DefaultTask() {
@@ -21,9 +36,33 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   @get:OutputDirectory
   abstract val outputDir: DirectoryProperty
 
+  @get:Input
+  abstract val packageName: Property<String>
+
+  @get:Input
+  abstract val typeMappingPreset: Property<String>
+
+  @get:Input
+  abstract val typeMappingFormatOverrides: MapProperty<String, String>
+
+  @get:Input
+  abstract val typeMappingBaseOverrides: MapProperty<String, String>
+
+  @get:Input
+  abstract val namingMode: Property<String>
+
+  @get:Input
+  abstract val nullabilityMode: Property<String>
+
   @TaskAction
   fun generate() {
-    val generator = DiplodokodeGenerator()
+    val config = GeneratorConfig(
+        namingStrategy = buildNamingStrategy(),
+        nullabilityStrategy = buildNullabilityStrategy(),
+        packageName = packageName.get(),
+        typeMappingStrategy = buildTypeMappingStrategy(),
+    )
+    val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile
     val outputDirectory = outputDir.get().asFile
 
@@ -44,4 +83,29 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
       throw e
     }
   }
+
+  private fun buildTypeMappingStrategy(): TypeMappingStrategy {
+    val base: TypeMappingStrategy = when (typeMappingPreset.get()) {
+      "java" -> JavaTypeMappingStrategy()
+      else   -> KotlinMultiplatformTypeMappingStrategy()
+    }
+
+    val formatOverrides = typeMappingFormatOverrides.get().mapValues { (_, fqcn) -> ClassName.bestGuess(fqcn) }
+    val baseOverrides = typeMappingBaseOverrides.get().mapValues { (_, fqcn) -> ClassName.bestGuess(fqcn) }
+
+    return if (formatOverrides.isEmpty() && baseOverrides.isEmpty()) base
+    else base.withOverrides(formatOverrides, baseOverrides)
+  }
+
+  private fun buildNamingStrategy(): NamingStrategy = when (namingMode.get()) {
+    "preserve" -> PreserveNamingStrategy()
+    else       -> DefaultNamingStrategy()
+  }
+
+  private fun buildNullabilityStrategy(): NullabilityStrategy = when (nullabilityMode.get()) {
+    "all-nullable"     -> AllNullableStrategy()
+    "all-non-nullable" -> AllNonNullableStrategy()
+    else               -> SpecDrivenNullabilityStrategy()
+  }
+
 }

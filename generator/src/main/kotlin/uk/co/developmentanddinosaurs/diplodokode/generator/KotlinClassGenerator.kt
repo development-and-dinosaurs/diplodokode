@@ -6,6 +6,7 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
@@ -13,9 +14,9 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
-private const val PACKAGE = "uk.co.developmentanddinosaurs.diplodokode.generated"
+private val KOTLIN_UUID = ClassName("kotlin.uuid", "Uuid")
 
-class KotlinClassGenerator {
+class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
 
   fun generateFromSchema(
       name: String,
@@ -39,7 +40,7 @@ class KotlinClassGenerator {
       keyword: String,
       discriminatorEnum: DiscriminatorEnum?,
   ): FileSpec {
-    val interfaceName = name.replaceFirstChar { it.uppercase() }
+    val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
 
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
@@ -48,7 +49,7 @@ class KotlinClassGenerator {
     interfaceBuilder.addKdoc(kdoc)
 
     if (discriminatorEnum != null) {
-      val enumType = ClassName(PACKAGE, interfaceName, "Type")
+      val enumType = ClassName(config.packageName, interfaceName, "Type")
       val enumBuilder = TypeSpec.enumBuilder("Type")
       discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }
       interfaceBuilder.addType(enumBuilder.build())
@@ -74,8 +75,8 @@ class KotlinClassGenerator {
     schema.properties
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
-          val isNullable = !(schema.required?.contains(propName) ?: false) || propSchema.nullable == true
+          val propertyName = config.namingStrategy.propertyName(propName)
+          val isNullable = config.nullabilityStrategy.isNullable(propName, propSchema, schema.required?.toSet() ?: emptySet())
           val kotlinType = resolveType(propName, propSchema, isNullable, emptyMap())
           val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
           if (!propSchema.enum.isNullOrEmpty()) {
@@ -89,7 +90,7 @@ class KotlinClassGenerator {
       interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
     }
 
-    return FileSpec.builder(PACKAGE, interfaceName).addType(interfaceBuilder.build()).build()
+    return FileSpec.builder(config.packageName, interfaceName).addType(interfaceBuilder.build()).build()
   }
 
   private fun generateDataClass(
@@ -99,17 +100,8 @@ class KotlinClassGenerator {
       discriminatorOverride: DiscriminatorOverride? = null,
       interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
-    val className = name.replaceFirstChar { it.uppercase() }
-    val fileBuilder = FileSpec.builder(PACKAGE, className)
-
-    if (hasUuidFormat(schema)) {
-      fileBuilder.addAnnotation(
-          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
-              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
-              .build()
-      )
-    }
+    val className = config.namingStrategy.className(name)
+    val fileBuilder = FileSpec.builder(config.packageName, className)
 
     val enumClassNames =
         schema.properties
@@ -119,21 +111,21 @@ class KotlinClassGenerator {
                   propName !in interfacePropertyNames
             }
             ?.associate { (propName, propValue) ->
-              val enumName = propName.replaceFirstChar { it.uppercase() }
+              val enumName = config.namingStrategy.className(propName)
               fileBuilder.addType(generateEnumClass(enumName, propValue.enum!!))
-              propName to ClassName(PACKAGE, enumName)
+              propName to ClassName(config.packageName, enumName)
             } ?: emptyMap()
 
     val constructorParams =
         schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val propertyName = config.namingStrategy.propertyName(propName)
           if (propName == discriminatorOverride?.propertyName) {
-            val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
+            val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
             ParameterSpec.builder(propertyName, enumType)
                 .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
                 .build()
           } else {
-            val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+            val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
             val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
             ParameterSpec.builder(propertyName, kotlinType).build()
           }
@@ -141,17 +133,17 @@ class KotlinClassGenerator {
 
     val properties =
         schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = propName.replaceFirstChar { it.lowercase() }
+          val propertyName = config.namingStrategy.propertyName(propName)
           when {
             propName == discriminatorOverride?.propertyName -> {
-              val enumType = ClassName(PACKAGE, discriminatorOverride.interfaceName, "Type")
+              val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
               PropertySpec.builder(propertyName, enumType)
                   .addModifiers(KModifier.OVERRIDE)
                   .initializer(propertyName)
                   .build()
             }
             propName in interfacePropertyNames -> {
-              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               PropertySpec.builder(propertyName, kotlinType)
                   .addModifiers(KModifier.OVERRIDE)
@@ -159,7 +151,7 @@ class KotlinClassGenerator {
                   .build()
             }
             else -> {
-              val isNullable = !(schema.required?.contains(propName) ?: false) || propValue.nullable == true
+              val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
                   .addModifiers(KModifier.PUBLIC)
@@ -174,6 +166,16 @@ class KotlinClassGenerator {
           }
         } ?: emptyList()
 
+    val allTypes = constructorParams.map { it.type } + properties.map { it.type }
+    if (allTypes.any { containsKotlinUuid(it) }) {
+      fileBuilder.addAnnotation(
+          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
+              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
+              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
+              .build()
+      )
+    }
+
     val dataClassBuilder =
         TypeSpec.classBuilder(className)
             .addModifiers(KModifier.DATA)
@@ -181,22 +183,22 @@ class KotlinClassGenerator {
             .addProperties(properties)
 
     implementedInterfaces.forEach { iface ->
-      dataClassBuilder.addSuperinterface(ClassName(PACKAGE, iface))
+      dataClassBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
   }
 
   private fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
-    val enumName = name.replaceFirstChar { it.uppercase() }
-    return FileSpec.builder(PACKAGE, enumName)
+    val enumName = config.namingStrategy.className(name)
+    return FileSpec.builder(config.packageName, enumName)
         .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
         .build()
   }
 
   private fun generateEnumClass(name: String, values: List<String>): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
-    values.forEach { enumBuilder.addEnumConstant(it.uppercase()) }
+    values.forEach { enumBuilder.addEnumConstant(config.namingStrategy.enumConstant(it)) }
     return enumBuilder.build()
   }
 
@@ -208,7 +210,7 @@ class KotlinClassGenerator {
   ): TypeName {
     val baseType =
         when {
-          propValue.ref != null -> ClassName(PACKAGE, propValue.ref.substringAfterLast("/"))
+          propValue.ref != null -> ClassName(config.packageName, config.namingStrategy.className(propValue.ref.substringAfterLast("/")))
           propValue.type == "array" -> {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
@@ -220,7 +222,7 @@ class KotlinClassGenerator {
 
   private fun resolveItemType(items: Schema): TypeName =
       when {
-        items.ref != null -> ClassName(PACKAGE, items.ref.substringAfterLast("/"))
+        items.ref != null -> ClassName(config.packageName, config.namingStrategy.className(items.ref.substringAfterLast("/")))
         items.type == "array" -> {
           val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
           List::class.asTypeName().parameterizedBy(elementType)
@@ -229,44 +231,12 @@ class KotlinClassGenerator {
       }
 
   private fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
-      formatMappings[openApiType]?.get(format)
-          ?: baseMappings[openApiType]
-          ?: String::class.asTypeName()
+      openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()
 
-  private fun hasUuidFormat(schema: Schema): Boolean =
-      schema.properties?.values?.any { usesUuid(it) } == true
-
-  private fun usesUuid(prop: Schema): Boolean =
-      (prop.type == "string" && prop.format == "uuid") ||
-          (prop.type == "array" && prop.items != null && usesUuid(prop.items))
-
-  companion object {
-    private val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
-        "string" to mapOf(
-            "date-time" to ClassName("kotlinx.datetime", "Instant"),
-            "date"      to ClassName("kotlinx.datetime", "LocalDate"),
-            "time"      to ClassName("kotlinx.datetime", "LocalTime"),
-            "duration"  to ClassName("kotlin.time", "Duration"),
-            "uuid"      to ClassName("kotlin.uuid", "Uuid"),
-            "uri"       to String::class.asTypeName(),
-            "byte"      to ByteArray::class.asTypeName(),
-            "binary"    to ByteArray::class.asTypeName(),
-        ),
-        "integer" to mapOf(
-            "int64" to Long::class.asTypeName(),
-        ),
-        "number" to mapOf(
-            "float" to Float::class.asTypeName(),
-        ),
-    )
-
-    private val baseMappings: Map<String, TypeName> = mapOf(
-        "string"  to String::class.asTypeName(),
-        "integer" to Int::class.asTypeName(),
-        "number"  to Double::class.asTypeName(),
-        "boolean" to Boolean::class.asTypeName(),
-        "array"   to List::class.asTypeName(),
-        "object"  to Any::class.asTypeName(),
-    )
-  }
+  private fun containsKotlinUuid(type: TypeName): Boolean =
+      when {
+        type.copy(nullable = false) == KOTLIN_UUID -> true
+        type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
+        else -> false
+      }
 }

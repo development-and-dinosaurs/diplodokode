@@ -7,7 +7,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class KotlinClassGeneratorTest : BehaviorSpec({
 
-  val generator = KotlinClassGenerator()
+  val generator = KotlinClassGenerator(GeneratorConfig())
 
   Given("a schema with required and optional properties") {
     val schema = Schema(
@@ -590,6 +590,184 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("it should add the OptIn annotation") {
         code shouldContain "@file:OptIn(ExperimentalUuidApi::class)"
+      }
+    }
+  }
+
+  Given("a schema with a date-time property and the KMP type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val kmpGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = KotlinMultiplatformTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = kmpGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use kotlinx.datetime.Instant") {
+        code shouldContain "kotlinx.datetime.Instant"
+        code shouldNotContain "java.time"
+      }
+    }
+  }
+
+  Given("a schema with a date-time property and the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val javaGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = javaGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use java.time.Instant") {
+        code shouldContain "java.time.Instant"
+        code shouldNotContain "kotlinx.datetime"
+      }
+    }
+  }
+
+  Given("a schema with a uuid property and the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("id"),
+      properties = mapOf("id" to Schema(type = "string", format = "uuid")),
+    )
+    val javaGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = javaGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("it should use java.util.UUID") {
+        code shouldContain "java.util.UUID"
+      }
+
+      Then("it should not add the kotlin.uuid OptIn annotation") {
+        code shouldNotContain "@file:OptIn(ExperimentalUuidApi::class)"
+      }
+    }
+  }
+
+  Given("a schema with a date-time property and the KMP strategy with a format override") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val overrideStrategy = KotlinMultiplatformTypeMappingStrategy()
+        .withOverrides(formatOverrides = mapOf("date-time" to com.squareup.kotlinpoet.ClassName("java.time", "Instant")))
+    val overrideGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = overrideStrategy))
+
+    When("the generator produces a data class") {
+      val code = overrideGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the override type wins over the strategy default") {
+        code shouldContain "java.time.Instant"
+        code shouldNotContain "kotlinx.datetime"
+      }
+    }
+  }
+
+  Given("a schema with required and optional properties and the AllNullable strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "weight" to Schema(type = "number"),
+      )
+    )
+    val allNullableGenerator = KotlinClassGenerator(GeneratorConfig(nullabilityStrategy = AllNullableStrategy()))
+
+    When("the generator produces a data class") {
+      val code = allNullableGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("required properties are also nullable") {
+        code shouldContain "val name: String?"
+      }
+
+      Then("optional properties are nullable") {
+        code shouldContain "val weight: Double?"
+      }
+    }
+  }
+
+  Given("a schema with required and optional properties and the AllNonNullable strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("name"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "weight" to Schema(type = "number"),
+      )
+    )
+    val allNonNullableGenerator = KotlinClassGenerator(GeneratorConfig(nullabilityStrategy = AllNonNullableStrategy()))
+
+    When("the generator produces a data class") {
+      val code = allNonNullableGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("required properties are non-nullable") {
+        code shouldContain "val name: String"
+        code shouldNotContain "val name: String?"
+      }
+
+      Then("optional properties are also non-nullable") {
+        code shouldContain "val weight: Double"
+        code shouldNotContain "val weight: Double?"
+      }
+    }
+  }
+
+  Given("a schema with mixed-case and separator names using the Preserve naming strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("SpeciesName"),
+      properties = mapOf(
+        "SpeciesName" to Schema(type = "string"),
+        "content-type" to Schema(type = "string"),
+        "diet_type" to Schema(type = "string", enum = listOf("carnivore", "herbivore")),
+      )
+    )
+    val preserveGenerator = KotlinClassGenerator(GeneratorConfig(namingStrategy = PreserveNamingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = preserveGenerator.generateFromSchema("tyrannosaur", schema).toString()
+
+      Then("the class name is preserved as-is") {
+        code shouldContain "data class tyrannosaur"
+      }
+
+      Then("property names are preserved as-is") {
+        code shouldContain "val SpeciesName: String"
+      }
+
+      Then("hyphenated property names are backtick-escaped by KotlinPoet") {
+        code shouldContain "`content-type`"
+      }
+
+      Then("inline enum constants preserve their original case") {
+        code shouldContain "carnivore"
+        code shouldNotContain "CARNIVORE"
+      }
+    }
+  }
+
+  Given("a schema with a separator-containing property name using the Default naming strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("content-type"),
+      properties = mapOf("content-type" to Schema(type = "string")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the property name is converted to camelCase") {
+        code shouldContain "val contentType: String"
+        code shouldNotContain "`content-type`"
       }
     }
   }

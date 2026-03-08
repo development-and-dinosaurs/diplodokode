@@ -16,6 +16,13 @@ class GenerateDiplodokodeTaskTest : BehaviorSpec({
     val task = project.tasks.register("generateDiplodokode", GenerateDiplodokodeTask::class.java) { task ->
       task.inputFile.set(specFile)
       task.outputDir.set(outputDir)
+
+      task.namingMode.set("default")
+      task.nullabilityMode.set("spec-driven")
+      task.packageName.set("uk.co.developmentanddinosaurs.diplodokode.generated")
+      task.typeMappingPreset.set("kmp")
+      task.typeMappingFormatOverrides.set(emptyMap())
+      task.typeMappingBaseOverrides.set(emptyMap())
     }.get()
 
     When("the task action runs") {
