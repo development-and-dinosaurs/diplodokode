@@ -269,6 +269,32 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with a shared enum-constrained property on the oneOf parent schema") {
+    val openApiSpec = File("src/test/resources/shared-enum-prop-api.yaml")
+
+    When("the generator processes the spec") {
+      val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+      Then("the sealed interface declares the shared enum property as String with a KDoc warning") {
+        val dinosaurCode = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+        dinosaurCode shouldContain "val era: String"
+        dinosaurCode shouldNotContain "enum class Era"
+        dinosaurCode shouldContain "NOTE:"
+        dinosaurCode shouldContain "\$ref"
+      }
+
+      Then("implementing data classes override the shared property as String, not a local enum type") {
+        val tyrannosaurCode = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "override val era: String"
+        tyrannosaurCode shouldNotContain "enum class Era"
+
+        val triceratopsCode = generatedFiles.find { it.name == "Triceratops" }!!.toString()
+        triceratopsCode shouldContain "override val era: String"
+        triceratopsCode shouldNotContain "enum class Era"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with a oneOf discriminator where only some variants carry the discriminator property") {
     val openApiSpec = File("src/test/resources/partial-discriminator-api.yaml")
 

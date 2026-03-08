@@ -77,11 +77,12 @@ class KotlinClassGenerator {
           val propertyName = propName.replaceFirstChar { it.lowercase() }
           val isNullable = !(schema.required?.contains(propName) ?: false) || propSchema.nullable == true
           val kotlinType = resolveType(propName, propSchema, isNullable, emptyMap())
-          interfaceBuilder.addProperty(
-              PropertySpec.builder(propertyName, kotlinType)
-                  .addModifiers(KModifier.ABSTRACT)
-                  .build()
-          )
+          val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
+          if (!propSchema.enum.isNullOrEmpty()) {
+            val values = propSchema.enum.joinToString(", ")
+            propBuilder.addKdoc("NOTE: this property has an inline enum constraint [$values] — define the enum as a \$ref schema for a typed abstract property.\n")
+          }
+          interfaceBuilder.addProperty(propBuilder.build())
         }
 
     variants.filter { it.ref == null }.takeIf { it.isNotEmpty() }?.let {
@@ -114,7 +115,8 @@ class KotlinClassGenerator {
         schema.properties
             ?.entries
             ?.filter { (propName, propValue) ->
-              !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName
+              !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName &&
+                  propName !in interfacePropertyNames
             }
             ?.associate { (propName, propValue) ->
               val enumName = propName.replaceFirstChar { it.uppercase() }
