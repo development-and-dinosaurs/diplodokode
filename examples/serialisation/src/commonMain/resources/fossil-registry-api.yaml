@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Fossil Registry API
+  version: 1.0.0
+  description: API for registering and retrieving fossil specimens
+
+components:
+  schemas:
+
+    Era:
+      type: string
+      enum:
+        - triassic
+        - jurassic
+        - cretaceous
+
+    Diet:
+      type: string
+      enum:
+        - carnivore
+        - herbivore
+        - omnivore
+
+    Fossil:
+      type: object
+      description: A fossil specimen record
+      required:
+        - id
+        - name
+        - era
+        - diet
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the fossil specimen
+        name:
+          type: string
+          description: Common name of the dinosaur species
+        era:
+          $ref: '#/components/schemas/Era'
+        diet:
+          $ref: '#/components/schemas/Diet'
+        discoveryYear:
+          type: integer
+          description: Year the fossil was discovered
+        discoveryLocation:
+          type: string
+          description: Location where the fossil was found
+        completeness:
+          type: number
+          description: Estimated completeness of the fossil as a percentage
+
+paths:
+  /fossils:
+    get:
+      summary: List all fossil specimens
+      responses:
+        '200':
+          description: A list of fossil specimens
