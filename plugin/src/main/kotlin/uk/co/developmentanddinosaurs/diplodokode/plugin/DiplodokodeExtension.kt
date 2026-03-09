@@ -19,6 +19,8 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   internal val typeMappingConfig: TypeMappingsExtension = objects.newInstance(TypeMappingsExtension::class.java)
 
+  internal val serialisationConfig: SerialisationExtension = objects.newInstance(SerialisationExtension::class.java)
+
   fun inputFile(path: String) {
     inputFile.set(path)
   }
@@ -41,6 +43,10 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   fun typeMappings(action: TypeMappingsExtension.() -> Unit) {
     action(typeMappingConfig)
+  }
+
+  fun serialisation(action: SerialisationExtension.() -> Unit) {
+    action(serialisationConfig)
   }
 }
 
@@ -98,5 +104,18 @@ abstract class NamingExtension @Inject constructor(objects: ObjectFactory) {
 
   fun usePreserve() {
     mode.set("preserve")
+  }
+}
+
+abstract class SerialisationExtension @Inject constructor(objects: ObjectFactory) {
+
+  internal val library: Property<String> = objects.property(String::class.java).convention("none")
+
+  fun useKotlinx() {
+    library.set("kotlinx")
+  }
+
+  fun useNone() {
+    library.set("none")
   }
 }

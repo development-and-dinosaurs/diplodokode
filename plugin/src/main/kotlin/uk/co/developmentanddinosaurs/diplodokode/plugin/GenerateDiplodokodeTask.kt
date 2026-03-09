@@ -20,9 +20,11 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
 import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
 import uk.co.developmentanddinosaurs.diplodokode.generator.JavaTypeMappingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinMultiplatformTypeMappingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinxSerialisationStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.NamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.NullabilityStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.PreserveNamingStrategy
+import uk.co.developmentanddinosaurs.diplodokode.generator.SerializationStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.SpecDrivenNullabilityStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.TypeMappingStrategy
 
@@ -54,6 +56,9 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   @get:Input
   abstract val nullabilityMode: Property<String>
 
+  @get:Input
+  abstract val serialisationLibrary: Property<String>
+
   @TaskAction
   fun generate() {
     val config = GeneratorConfig(
@@ -61,6 +66,7 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
         nullabilityStrategy = buildNullabilityStrategy(),
         packageName = packageName.get(),
         typeMappingStrategy = buildTypeMappingStrategy(),
+        serialisationStrategy = buildSerialisationStrategy(),
     )
     val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile
@@ -106,6 +112,11 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
     "all-nullable"     -> AllNullableStrategy()
     "all-non-nullable" -> AllNonNullableStrategy()
     else               -> SpecDrivenNullabilityStrategy()
+  }
+
+  private fun buildSerialisationStrategy(): SerializationStrategy? = when (serialisationLibrary.get()) {
+    "kotlinx" -> KotlinxSerialisationStrategy
+    else      -> null
   }
 
 }

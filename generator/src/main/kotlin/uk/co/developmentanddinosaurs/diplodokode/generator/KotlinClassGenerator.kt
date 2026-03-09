@@ -179,6 +179,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     val dataClassBuilder =
         TypeSpec.classBuilder(className)
             .addModifiers(KModifier.DATA)
+            .also { builder -> config.serialisationStrategy?.let { builder.addAnnotation(it.classAnnotation) } }
             .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
             .addProperties(properties)
 
@@ -198,6 +199,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
 
   private fun generateEnumClass(name: String, values: List<String>): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
+    config.serialisationStrategy?.let { enumBuilder.addAnnotation(it.classAnnotation) }
     values.forEach { enumBuilder.addEnumConstant(config.namingStrategy.enumConstant(it)) }
     return enumBuilder.build()
   }

@@ -771,4 +771,79 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a kotlinx serialisation strategy") {
+    val serialisationGenerator = KotlinClassGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+
+    When("the generator produces a data class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string")),
+      )
+      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the data class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the import for Serializable is present") {
+        code shouldContain "import kotlinx.serialization.Serializable"
+      }
+    }
+
+    When("the generator produces a top-level enum class") {
+      val schema = Schema(enum = listOf("tyrannosaur", "triceratops"))
+      val code = serialisationGenerator.generateFromSchema("DinosaurType", schema).toString()
+
+      Then("the enum class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the import for Serializable is present") {
+        code shouldContain "import kotlinx.serialization.Serializable"
+      }
+    }
+
+    When("the generator produces an inline enum companion class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("diet"),
+        properties = mapOf("diet" to Schema(type = "string", enum = listOf("carnivore", "herbivore"))),
+      )
+      val code = serialisationGenerator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the inline enum class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+    }
+  }
+
+  Given("no serialisation strategy") {
+    val noSerializationGenerator = KotlinClassGenerator(GeneratorConfig())
+
+    When("the generator produces a data class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string")),
+      )
+      val code = noSerializationGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("no @Serializable annotation is present") {
+        code shouldNotContain "@Serializable"
+        code shouldNotContain "import kotlinx.serialization"
+      }
+    }
+
+    When("the generator produces an enum class") {
+      val schema = Schema(enum = listOf("tyrannosaur", "triceratops"))
+      val code = noSerializationGenerator.generateFromSchema("DinosaurType", schema).toString()
+
+      Then("no @Serializable annotation is present") {
+        code shouldNotContain "@Serializable"
+        code shouldNotContain "import kotlinx.serialization"
+      }
+    }
+  }
 })
