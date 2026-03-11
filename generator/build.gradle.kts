@@ -18,6 +18,7 @@ dependencies {
 
   testImplementation(libs.kotest.assertions.core)
   testImplementation(libs.kotest.runner.junit5)
+  testImplementation(libs.kotlinx.serialization.json)
 }
 
 tasks.test {
