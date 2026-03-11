@@ -6,7 +6,10 @@ import uk.co.developmentanddinosaurs.diplodokode.generated.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generated.Era
 import uk.co.developmentanddinosaurs.diplodokode.generated.Fossil
 
-val json = Json { prettyPrint = true }
+val json = Json {
+    prettyPrint = true
+    explicitNulls = false  // nullable fields may be omitted from JSON input
+}
 
 fun main() {
     println("=== Diplodokode Serialisation Example ===")
@@ -57,6 +60,23 @@ fun main() {
     println("Re-decoded: $decodedSue")
     println("Match: ${sue == decodedSue}")
     println()
+
+    println("--- Decode from spec-value JSON ---")
+    val specJson = """
+        {
+            "id": "NHM-004",
+            "name": "Matilda",
+            "era": "cretaceous",
+            "diet": "herbivore",
+            "discoveryYear": 2004,
+            "discoveryLocation": "Queensland, Australia"
+        }
+    """.trimIndent()
+    val matilda = json.decodeFromString<Fossil>(specJson)
+    println("Decoded: $matilda")
+    println()
+
+    println("--- Enum wire values ---")
     Era.entries.forEach { era ->
         println("  ${era.name} -> ${json.encodeToString(era)}")
     }

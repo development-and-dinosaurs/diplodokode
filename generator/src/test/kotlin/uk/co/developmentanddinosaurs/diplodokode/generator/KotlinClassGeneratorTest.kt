@@ -803,6 +803,16 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       Then("the import for Serializable is present") {
         code shouldContain "import kotlinx.serialization.Serializable"
       }
+
+      Then("each constant has a @SerialName matching the spec value") {
+        code shouldContain """@SerialName("tyrannosaur")"""
+        code shouldContain """@SerialName("triceratops")"""
+      }
+
+      Then("the Kotlin constant names are still uppercased") {
+        code shouldContain "TYRANNOSAUR"
+        code shouldContain "TRICERATOPS"
+      }
     }
 
     When("the generator produces an inline enum companion class") {
@@ -815,6 +825,11 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("the inline enum class is annotated with @Serializable") {
         code shouldContain "@Serializable"
+      }
+
+      Then("each constant has a @SerialName matching the spec value") {
+        code shouldContain """@SerialName("carnivore")"""
+        code shouldContain """@SerialName("herbivore")"""
       }
     }
   }
@@ -843,6 +858,10 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       Then("no @Serializable annotation is present") {
         code shouldNotContain "@Serializable"
         code shouldNotContain "import kotlinx.serialization"
+      }
+
+      Then("no @SerialName annotations are present") {
+        code shouldNotContain "@SerialName"
       }
     }
   }

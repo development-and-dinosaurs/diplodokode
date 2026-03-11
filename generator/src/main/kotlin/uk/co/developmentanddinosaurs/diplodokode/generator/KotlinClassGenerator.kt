@@ -51,7 +51,15 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     if (discriminatorEnum != null) {
       val enumType = ClassName(config.packageName, interfaceName, "Type")
       val enumBuilder = TypeSpec.enumBuilder("Type")
-      discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }
+      config.serialisationStrategy?.let { enumBuilder.addAnnotation(it.classAnnotation) }
+      discriminatorEnum.constants.zip(discriminatorEnum.rawValues).forEach { (kotlinName, rawValue) ->
+        val constantAnnotation = config.serialisationStrategy?.enumConstantAnnotation(rawValue)
+        if (constantAnnotation != null) {
+          enumBuilder.addEnumConstant(kotlinName, TypeSpec.anonymousClassBuilder().addAnnotation(constantAnnotation).build())
+        } else {
+          enumBuilder.addEnumConstant(kotlinName)
+        }
+      }
       interfaceBuilder.addType(enumBuilder.build())
       interfaceBuilder.addProperty(
           PropertySpec.builder(discriminatorEnum.propertyName, enumType)
@@ -200,7 +208,15 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
   private fun generateEnumClass(name: String, values: List<String>): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
     config.serialisationStrategy?.let { enumBuilder.addAnnotation(it.classAnnotation) }
-    values.forEach { enumBuilder.addEnumConstant(config.namingStrategy.enumConstant(it)) }
+    values.forEach { rawValue ->
+      val kotlinName = config.namingStrategy.enumConstant(rawValue)
+      val constantAnnotation = config.serialisationStrategy?.enumConstantAnnotation(rawValue)
+      if (constantAnnotation != null) {
+        enumBuilder.addEnumConstant(kotlinName, TypeSpec.anonymousClassBuilder().addAnnotation(constantAnnotation).build())
+      } else {
+        enumBuilder.addEnumConstant(kotlinName)
+      }
+    }
     return enumBuilder.build()
   }
 
