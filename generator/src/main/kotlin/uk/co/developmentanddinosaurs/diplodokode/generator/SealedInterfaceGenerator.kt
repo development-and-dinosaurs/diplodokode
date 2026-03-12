@@ -24,40 +24,82 @@ internal class SealedInterfaceGenerator(
 
     config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
-    val kdoc = if (keyword == "anyOf") "One or more of the following variants may be used.\n"
-               else "Exactly one of the following variants must be used.\n"
-    interfaceBuilder.addKdoc(kdoc)
+    interfaceBuilder.addKdoc(variantKdoc(keyword))
 
     val useSerialisedDiscriminator = config.serialisationStrategy != null && discriminatorEnum != null
-    if (discriminatorEnum != null && !useSerialisedDiscriminator) {
-      val enumType = ClassName(config.packageName, interfaceName, "Type")
-      val enumBuilder = TypeSpec.enumBuilder("Type")
-      discriminatorEnum.constants.zip(discriminatorEnum.rawValues).forEach { (kotlinName, _) ->
-        enumBuilder.addEnumConstant(kotlinName)
-      }
-      interfaceBuilder.addType(enumBuilder.build())
+    applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
+
+    val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
+    addAbstractProperties(interfaceBuilder, schema, discriminatorPropName)
+
+    if (variants.any { it.ref == null }) {
+      interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
+    }
+
+    val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
+    if (useSerialisedDiscriminator) {
+      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
+    }
+    return fileBuilder.addType(interfaceBuilder.build()).build()
+  }
+
+  private fun variantKdoc(keyword: String) =
+      if (keyword == "anyOf") "One or more of the following variants may be used.\n"
+      else "Exactly one of the following variants must be used.\n"
+
+  private fun applyDiscriminator(
+      interfaceBuilder: TypeSpec.Builder,
+      interfaceName: String,
+      discriminatorEnum: DiscriminatorEnum?,
+      useSerialisedDiscriminator: Boolean,
+      schema: Schema,
+  ) {
+    when {
+      discriminatorEnum != null && !useSerialisedDiscriminator -> addTypeEnum(interfaceBuilder, interfaceName, discriminatorEnum)
+      discriminatorEnum != null -> addSerialisedDiscriminator(interfaceBuilder, discriminatorEnum)
+      else -> addFallbackDiscriminator(interfaceBuilder, schema)
+    }
+  }
+
+  private fun addTypeEnum(
+      interfaceBuilder: TypeSpec.Builder,
+      interfaceName: String,
+      discriminatorEnum: DiscriminatorEnum,
+  ) {
+    val enumType = ClassName(config.packageName, interfaceName, "Type")
+    val enumBuilder = TypeSpec.enumBuilder("Type")
+    discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }
+    interfaceBuilder.addType(enumBuilder.build())
+    interfaceBuilder.addProperty(
+        PropertySpec.builder(discriminatorEnum.propertyName, enumType)
+            .addModifiers(KModifier.ABSTRACT)
+            .build()
+    )
+  }
+
+  private fun addSerialisedDiscriminator(interfaceBuilder: TypeSpec.Builder, discriminatorEnum: DiscriminatorEnum) {
+    config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
+        ?.let { interfaceBuilder.addAnnotation(it) }
+  }
+
+  private fun addFallbackDiscriminator(interfaceBuilder: TypeSpec.Builder, schema: Schema) {
+    schema.discriminator?.let { disc ->
+      interfaceBuilder.addKdoc(
+          "Warning: discriminator property '${disc.propertyName}' is declared but not all variants carry it; falling back to `abstract val ${disc.propertyName}: String`.\n"
+      )
       interfaceBuilder.addProperty(
-          PropertySpec.builder(discriminatorEnum.propertyName, enumType)
+          PropertySpec.builder(disc.propertyName, String::class)
               .addModifiers(KModifier.ABSTRACT)
               .build()
       )
-    } else if (discriminatorEnum != null) {
-      config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
-          ?.let { interfaceBuilder.addAnnotation(it) }
-    } else {
-      schema.discriminator?.let { disc ->
-        interfaceBuilder.addKdoc(
-            "Warning: discriminator property '${disc.propertyName}' is declared but not all variants carry it; falling back to `abstract val ${disc.propertyName}: String`.\n"
-        )
-        interfaceBuilder.addProperty(
-            PropertySpec.builder(disc.propertyName, String::class)
-                .addModifiers(KModifier.ABSTRACT)
-                .build()
-        )
-      }
     }
+  }
 
-    val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
+  private fun addAbstractProperties(
+      interfaceBuilder: TypeSpec.Builder,
+      schema: Schema,
+      discriminatorPropName: String?,
+  ) {
     schema.properties
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
@@ -72,16 +114,6 @@ internal class SealedInterfaceGenerator(
           propBuilder.applySerialName(propName, propertyName)
           interfaceBuilder.addProperty(propBuilder.build())
         }
-
-    variants.filter { it.ref == null }.takeIf { it.isNotEmpty() }?.let {
-      interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
-    }
-
-    val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
-    if (useSerialisedDiscriminator) {
-      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
-    }
-    return fileBuilder.addType(interfaceBuilder.build()).build()
   }
 
   private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {

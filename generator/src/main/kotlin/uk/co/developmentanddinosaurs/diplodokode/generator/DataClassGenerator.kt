@@ -27,75 +27,21 @@ internal class DataClassGenerator(
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
     val serialiseDiscriminator = config.serialisationStrategy != null && discriminatorOverride != null
+    val required = schema.required?.toSet() ?: emptySet()
 
-    val enumClassNames =
-        schema.properties
-            ?.entries
-            ?.filter { (propName, propValue) ->
-              !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName &&
-                  propName !in interfacePropertyNames
-            }
-            ?.associate { (propName, propValue) ->
-              val enumName = config.namingStrategy.className(propName)
-              fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!))
-              propName to ClassName(config.packageName, enumName)
-            } ?: emptyMap()
+    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)
 
-    val constructorParams =
-        schema.properties?.entries
-            ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
-            ?.map { (propName, propValue) ->
-              val propertyName = config.namingStrategy.propertyName(propName)
-              if (propName == discriminatorOverride?.propertyName) {
-                val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-                ParameterSpec.builder(propertyName, enumType)
-                    .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
-                    .build()
-              } else {
-                val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
-                val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-                ParameterSpec.builder(propertyName, kotlinType).build()
-              }
-            } ?: emptyList()
+    val constructorParams = schema.properties?.entries
+        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.map { (propName, propValue) ->
+          buildConstructorParam(propName, propValue, required, discriminatorOverride, enumClassNames)
+        } ?: emptyList()
 
-    val properties =
-        schema.properties?.entries
-            ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
-            ?.map { (propName, propValue) ->
-              val propertyName = config.namingStrategy.propertyName(propName)
-              when (propName) {
-                discriminatorOverride?.propertyName -> {
-                  val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-                  PropertySpec.builder(propertyName, enumType)
-                    .addModifiers(KModifier.OVERRIDE)
-                    .initializer(propertyName)
-                    .applySerialName(propName, propertyName)
-                    .build()
-                }
-                in interfacePropertyNames -> {
-                  val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
-                  val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-                  PropertySpec.builder(propertyName, kotlinType)
-                    .addModifiers(KModifier.OVERRIDE)
-                    .initializer(propertyName)
-                    .applySerialName(propName, propertyName)
-                    .build()
-                }
-                else -> {
-                  val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
-                  val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-                  val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
-                    .addModifiers(KModifier.PUBLIC)
-                    .initializer(propertyName)
-                  propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
-                  if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
-                    val values = propValue.items.enum.joinToString(", ")
-                    propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
-                  }
-                  propertyBuilder.applySerialName(propName, propertyName).build()
-                }
-              }
-            } ?: emptyList()
+    val properties = schema.properties?.entries
+        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.map { (propName, propValue) ->
+          buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
+        } ?: emptyList()
 
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
     if (allTypes.any { typeResolver.containsKotlinUuid(it) }) {
@@ -107,25 +53,125 @@ internal class DataClassGenerator(
       )
     }
 
-    val dataClassBuilder =
-        TypeSpec.classBuilder(className)
-            .addModifiers(KModifier.DATA)
-            .also { builder ->
-              config.serialisationStrategy?.let { strategy ->
-                builder.addAnnotation(strategy.classAnnotation)
-                if (serialiseDiscriminator) {
-                  strategy.variantAnnotation(discriminatorOverride.rawValue)?.let { builder.addAnnotation(it) }
-                }
-              }
+    val dataClassBuilder = TypeSpec.classBuilder(className)
+        .addModifiers(KModifier.DATA)
+        .also { builder ->
+          config.serialisationStrategy?.let { strategy ->
+            builder.addAnnotation(strategy.classAnnotation)
+            if (serialiseDiscriminator) {
+              strategy.variantAnnotation(discriminatorOverride.rawValue)?.let { builder.addAnnotation(it) }
             }
-            .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
-            .addProperties(properties)
+          }
+        }
+        .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
+        .addProperties(properties)
 
     implementedInterfaces.forEach { iface ->
       dataClassBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
+  }
+
+  private fun buildInlineEnumClasses(
+      schema: Schema,
+      discriminatorOverride: DiscriminatorOverride?,
+      interfacePropertyNames: Set<String>,
+      fileBuilder: FileSpec.Builder,
+  ): Map<String, ClassName> =
+      schema.properties?.entries
+          ?.filter { (propName, propValue) ->
+            !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName &&
+                propName !in interfacePropertyNames
+          }
+          ?.associate { (propName, propValue) ->
+            val enumName = config.namingStrategy.className(propName)
+            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!))
+            propName to ClassName(config.packageName, enumName)
+          } ?: emptyMap()
+
+  private fun buildConstructorParam(
+      propName: String,
+      propValue: Schema,
+      required: Set<String>,
+      discriminatorOverride: DiscriminatorOverride?,
+      enumClassNames: Map<String, ClassName>,
+  ): ParameterSpec {
+    val propertyName = config.namingStrategy.propertyName(propName)
+    if (propName == discriminatorOverride?.propertyName) {
+      val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+      return ParameterSpec.builder(propertyName, enumType)
+          .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
+          .build()
+    }
+    val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    return ParameterSpec.builder(propertyName, kotlinType).build()
+  }
+
+  private fun buildProperty(
+      propName: String,
+      propValue: Schema,
+      required: Set<String>,
+      discriminatorOverride: DiscriminatorOverride?,
+      interfacePropertyNames: Set<String>,
+      enumClassNames: Map<String, ClassName>,
+  ): PropertySpec {
+    val propertyName = config.namingStrategy.propertyName(propName)
+    return when (propName) {
+      discriminatorOverride?.propertyName -> buildDiscriminatorProperty(propertyName, propName, discriminatorOverride)
+      in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
+      else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
+    }
+  }
+
+  private fun buildDiscriminatorProperty(
+      propertyName: String,
+      propName: String,
+      discriminatorOverride: DiscriminatorOverride,
+  ): PropertySpec {
+    val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+    return PropertySpec.builder(propertyName, enumType)
+        .addModifiers(KModifier.OVERRIDE)
+        .initializer(propertyName)
+        .applySerialName(propName, propertyName)
+        .build()
+  }
+
+  private fun buildOverrideProperty(
+      propName: String,
+      propValue: Schema,
+      propertyName: String,
+      required: Set<String>,
+      enumClassNames: Map<String, ClassName>,
+  ): PropertySpec {
+    val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    return PropertySpec.builder(propertyName, kotlinType)
+        .addModifiers(KModifier.OVERRIDE)
+        .initializer(propertyName)
+        .applySerialName(propName, propertyName)
+        .build()
+  }
+
+  private fun buildPlainProperty(
+      propName: String,
+      propValue: Schema,
+      propertyName: String,
+      required: Set<String>,
+      enumClassNames: Map<String, ClassName>,
+  ): PropertySpec {
+    val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    val builder = PropertySpec.builder(propertyName, kotlinType)
+        .addModifiers(KModifier.PUBLIC)
+        .initializer(propertyName)
+    propValue.description?.let { builder.addKdoc("$it\n") }
+    if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
+      val values = propValue.items.enum.joinToString(", ")
+      builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+    }
+    return builder.applySerialName(propName, propertyName).build()
   }
 
   private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {
