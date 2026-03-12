@@ -363,6 +363,39 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with snake_case property names and serialisation enabled") {
+    val serialisationGenerator = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+    val openApiSpec = File("src/test/resources/snake-case-api.yaml")
+
+    When("the generator processes the spec") {
+      val code = serialisationGenerator.generateFromSpec(openApiSpec).find { it.name == "Tyrannosaur" }!!.toString()
+
+      Then("transformed properties have @SerialName with the original spec name") {
+        code shouldContain """@SerialName("arm_length")"""
+        code shouldContain """@SerialName("hunting_territory")"""
+        code shouldContain """@SerialName("favourite_prey")"""
+      }
+
+      Then("the Kotlin property names are camelCase") {
+        code shouldContain "val armLength: Double"
+        code shouldContain "val huntingTerritory: String"
+        code shouldContain "val favouritePrey: String?"
+      }
+    }
+  }
+
+  Given("an OpenAPI spec with snake_case property names and no serialisation strategy") {
+    val openApiSpec = File("src/test/resources/snake-case-api.yaml")
+
+    When("the generator processes the spec") {
+      val code = generator.generateFromSpec(openApiSpec).find { it.name == "Tyrannosaur" }!!.toString()
+
+      Then("no @SerialName annotations are emitted") {
+        code shouldNotContain "@SerialName"
+      }
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
 

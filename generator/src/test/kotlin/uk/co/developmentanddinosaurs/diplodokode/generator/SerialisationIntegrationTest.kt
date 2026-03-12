@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlinx.serialization.json.Json
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import java.io.File
 
 /**
@@ -87,6 +88,49 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
             Then("the null optional field is absent") {
                 decoded.favouritePrey shouldBe null
+            }
+        }
+    }
+
+    Given("an OpenAPI spec with snake_case property names and serialisation enabled") {
+        val spec = File("src/test/resources/snake-case-api.yaml")
+        val generatedFiles = generator.generateFromSpec(spec)
+
+        Then("the generated class has @SerialName on each transformed property") {
+            val code = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+            code shouldContain """@SerialName("arm_length")"""
+            code shouldContain """@SerialName("hunting_territory")"""
+            code shouldContain """@SerialName("favourite_prey")"""
+        }
+
+        When("a model instance is encoded to JSON") {
+            val tyrannosaur = Tyrannosaur(armLength = 0.8, huntingTerritory = "Montana", favouritePrey = null)
+            val encoded = json.encodeToString(tyrannosaur)
+
+            Then("property names in JSON match the spec's snake_case keys") {
+                encoded shouldContain """"arm_length":0.8"""
+                encoded shouldContain """"hunting_territory":"Montana""""
+            }
+
+            Then("camelCase Kotlin names are absent from the JSON") {
+                encoded shouldNotContain "armLength"
+                encoded shouldNotContain "huntingTerritory"
+            }
+
+            Then("the decoded instance is equal to the original") {
+                val decoded = json.decodeFromString<Tyrannosaur>(encoded)
+                decoded shouldBe tyrannosaur
+            }
+        }
+
+        When("a JSON payload with snake_case keys is decoded") {
+            val specJson = """{"arm_length":1.2,"hunting_territory":"Alberta","favourite_prey":"Edmontosaurus"}"""
+            val decoded = json.decodeFromString<Tyrannosaur>(specJson)
+
+            Then("fields map to the correct Kotlin properties") {
+                decoded.armLength shouldBe 1.2
+                decoded.huntingTerritory shouldBe "Alberta"
+                decoded.favouritePrey shouldBe "Edmontosaurus"
             }
         }
     }

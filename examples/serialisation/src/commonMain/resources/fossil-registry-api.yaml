@@ -40,13 +40,13 @@ components:
           $ref: '#/components/schemas/Era'
         diet:
           $ref: '#/components/schemas/Diet'
-        discoveryYear:
+        discovery_year:
           type: integer
           description: Year the fossil was discovered
-        discoveryLocation:
+        discovery_location:
           type: string
           description: Location where the fossil was found
-        completeness:
+        completeness_percent:
           type: number
           description: Estimated completeness of the fossil as a percentage
 

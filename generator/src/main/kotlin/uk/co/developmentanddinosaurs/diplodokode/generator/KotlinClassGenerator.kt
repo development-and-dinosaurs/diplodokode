@@ -91,6 +91,7 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
             val values = propSchema.enum.joinToString(", ")
             propBuilder.addKdoc("NOTE: this property has an inline enum constraint [$values] — define the enum as a \$ref schema for a typed abstract property.\n")
           }
+          propBuilder.applySerialName(propName, propertyName)
           interfaceBuilder.addProperty(propBuilder.build())
         }
 
@@ -142,34 +143,36 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     val properties =
         schema.properties?.entries?.map { (propName, propValue) ->
           val propertyName = config.namingStrategy.propertyName(propName)
-          when {
-            propName == discriminatorOverride?.propertyName -> {
+          when (propName) {
+            discriminatorOverride?.propertyName -> {
               val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
               PropertySpec.builder(propertyName, enumType)
-                  .addModifiers(KModifier.OVERRIDE)
-                  .initializer(propertyName)
-                  .build()
+                .addModifiers(KModifier.OVERRIDE)
+                .initializer(propertyName)
+                .applySerialName(propName, propertyName)
+                .build()
             }
-            propName in interfacePropertyNames -> {
+            in interfacePropertyNames -> {
               val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               PropertySpec.builder(propertyName, kotlinType)
-                  .addModifiers(KModifier.OVERRIDE)
-                  .initializer(propertyName)
-                  .build()
+                .addModifiers(KModifier.OVERRIDE)
+                .initializer(propertyName)
+                .applySerialName(propName, propertyName)
+                .build()
             }
             else -> {
               val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
               val propertyBuilder = PropertySpec.builder(propertyName, kotlinType)
-                  .addModifiers(KModifier.PUBLIC)
-                  .initializer(propertyName)
+                .addModifiers(KModifier.PUBLIC)
+                .initializer(propertyName)
               propValue.description?.let { propertyBuilder.addKdoc("$it\n") }
               if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
                 val values = propValue.items.enum.joinToString(", ")
                 propertyBuilder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
               }
-              propertyBuilder.build()
+              propertyBuilder.applySerialName(propName, propertyName).build()
             }
           }
         } ?: emptyList()
@@ -257,4 +260,11 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
         type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
         else -> false
       }
+
+  private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {
+    if (kotlinName != specName) {
+      config.serialisationStrategy?.propertyAnnotation(specName)?.let { addAnnotation(it) }
+    }
+    return this
+  }
 }

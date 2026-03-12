@@ -24,3 +24,10 @@ data class Dinosaur(
     val diet: Diet,
     val favouritePrey: String?,
 )
+
+@Serializable
+data class Tyrannosaur(
+    @SerialName("arm_length") val armLength: Double,
+    @SerialName("hunting_territory") val huntingTerritory: String,
+    @SerialName("favourite_prey") val favouritePrey: String?,
+)

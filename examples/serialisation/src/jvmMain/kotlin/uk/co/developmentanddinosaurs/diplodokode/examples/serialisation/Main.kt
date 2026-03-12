@@ -23,7 +23,7 @@ fun main() {
             diet = Diet.CARNIVORE,
             discoveryYear = 1990,
             discoveryLocation = "South Dakota, USA",
-            completeness = 90.0,
+            completenessPercent = 90.0,
         ),
         Fossil(
             id = "NHM-002",
@@ -32,7 +32,7 @@ fun main() {
             diet = Diet.HERBIVORE,
             discoveryYear = 1899,
             discoveryLocation = "Wyoming, USA",
-            completeness = 70.0,
+            completenessPercent = 70.0,
         ),
         Fossil(
             id = "NHM-003",
@@ -41,14 +41,16 @@ fun main() {
             diet = Diet.CARNIVORE,
             discoveryYear = 1987,
             discoveryLocation = null,
-            completeness = null,
+            completenessPercent = null,
         ),
     )
 
     println("--- Encoding to JSON ---")
+    println("Spec property names are snake_case; Kotlin properties are camelCase.")
+    println("@SerialName maps them back to the spec wire format automatically.")
+    println()
     specimens.forEach { fossil ->
-        val encoded = json.encodeToString(fossil)
-        println(encoded)
+        println(json.encodeToString(fossil))
         println()
     }
 
@@ -56,24 +58,26 @@ fun main() {
     val sue = specimens.first()
     val encodedSue = json.encodeToString(sue)
     val decodedSue = json.decodeFromString<Fossil>(encodedSue)
-    println("Original:  $sue")
+    println("Original:   $sue")
     println("Re-decoded: $decodedSue")
     println("Match: ${sue == decodedSue}")
     println()
 
-    println("--- Decode from spec-value JSON ---")
+    println("--- Decode from spec-value JSON (snake_case keys, lowercase enums) ---")
     val specJson = """
         {
             "id": "NHM-004",
             "name": "Matilda",
             "era": "cretaceous",
             "diet": "herbivore",
-            "discoveryYear": 2004,
-            "discoveryLocation": "Queensland, Australia"
+            "discovery_year": 2004,
+            "discovery_location": "Queensland, Australia",
+            "completeness_percent": 65.0
         }
     """.trimIndent()
     val matilda = json.decodeFromString<Fossil>(specJson)
     println("Decoded: $matilda")
+    println("  discoveryYear=${matilda.discoveryYear}, discoveryLocation=${matilda.discoveryLocation}, completenessPercent=${matilda.completenessPercent}")
     println()
 
     println("--- Enum wire values ---")
