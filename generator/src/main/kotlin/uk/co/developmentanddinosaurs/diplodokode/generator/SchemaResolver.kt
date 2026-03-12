@@ -114,12 +114,23 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       interfaceMap: Map<String, List<String>>,
   ): Map<String, Set<String>> =
       interfaceMap.mapValues { (_, interfaces) ->
-        interfaces.flatMap { ifaceName ->
-          val ifaceSchema = rawSchemas[ifaceName] ?: return@flatMap emptyList()
-          val discriminatorPropName = ifaceSchema.discriminator?.propertyName
-          ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
-        }.toSet()
+        collectTransitiveProperties(interfaces, rawSchemas, interfaceMap, mutableSetOf()).toSet()
       }.filterValues { it.isNotEmpty() }
+
+  private fun collectTransitiveProperties(
+      interfaces: List<String>,
+      rawSchemas: Map<String, Schema>,
+      interfaceMap: Map<String, List<String>>,
+      visited: MutableSet<String>,
+  ): List<String> =
+      interfaces.flatMap { ifaceName ->
+        if (!visited.add(ifaceName)) return@flatMap emptyList()
+        val ifaceSchema = rawSchemas[ifaceName] ?: return@flatMap emptyList()
+        val discriminatorPropName = ifaceSchema.discriminator?.propertyName
+        val ownProperties = ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
+        val ancestorProperties = collectTransitiveProperties(interfaceMap[ifaceName] ?: emptyList(), rawSchemas, interfaceMap, visited)
+        ownProperties + ancestorProperties
+      }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
     discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }

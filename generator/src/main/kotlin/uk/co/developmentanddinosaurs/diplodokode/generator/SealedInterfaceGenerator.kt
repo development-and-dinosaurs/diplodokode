@@ -18,11 +18,15 @@ internal class SealedInterfaceGenerator(
       variants: List<Schema>,
       keyword: String,
       discriminatorEnum: DiscriminatorEnum?,
+      implementedInterfaces: List<String> = emptyList(),
   ): FileSpec {
     val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
 
     config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
+    implementedInterfaces.forEach { iface ->
+      interfaceBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+    }
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
     interfaceBuilder.addKdoc(variantKdoc(keyword))
 

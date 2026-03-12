@@ -180,6 +180,23 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a sealed interface that is itself a variant of another sealed interface") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Diplodocus"),
+        Schema(ref = "#/components/schemas/Brachiosaurus"),
+      ),
+    )
+
+    When("the generator produces a sealed interface with implemented interfaces") {
+      val code = generator().generate("Sauropod", schema, schema.oneOf!!, "oneOf", null, implementedInterfaces = listOf("Dinosaur")).toString()
+
+      Then("the sealed interface extends the parent interface") {
+        code shouldContain "sealed interface Sauropod : Dinosaur"
+      }
+    }
+  }
+
   Given("a schema with inline (non-ref) variants") {
     val schema = Schema(
       oneOf = listOf(
