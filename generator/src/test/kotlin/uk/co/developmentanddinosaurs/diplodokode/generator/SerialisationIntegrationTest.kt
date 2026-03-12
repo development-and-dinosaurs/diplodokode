@@ -4,9 +4,14 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Brachiosaurus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diplodocus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Sauropod
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import java.io.File
 
@@ -131,6 +136,67 @@ class SerialisationIntegrationTest : BehaviorSpec({
                 decoded.armLength shouldBe 1.2
                 decoded.huntingTerritory shouldBe "Alberta"
                 decoded.favouritePrey shouldBe "Edmontosaurus"
+            }
+        }
+    }
+
+    Given("an OpenAPI spec with oneOf and a discriminator, with serialisation enabled") {
+        val spec = File("src/test/resources/discriminator-serialisation-api.yaml")
+        val generatedFiles = generator.generateFromSpec(spec)
+
+        Then("the sealed interface is annotated with @Serializable") {
+            val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
+            code shouldContain "@Serializable"
+        }
+
+        Then("the sealed interface is annotated with @JsonClassDiscriminator") {
+            val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
+            code shouldContain """@JsonClassDiscriminator("type")"""
+            code shouldContain "ExperimentalSerializationApi"
+        }
+
+        Then("no nested Type enum is generated on the sealed interface") {
+            val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
+            code shouldNotContain "enum class Type"
+        }
+
+        Then("each variant is annotated with @SerialName matching its discriminator value") {
+            val diplodocusCode = generatedFiles.find { it.name == "Diplodocus" }!!.toString()
+            val brachiosaurusCode = generatedFiles.find { it.name == "Brachiosaurus" }!!.toString()
+            diplodocusCode shouldContain """@SerialName("diplodocus")"""
+            brachiosaurusCode shouldContain """@SerialName("brachiosaurus")"""
+        }
+
+        Then("variant data classes do not contain the discriminator property") {
+            val diplodocusCode = generatedFiles.find { it.name == "Diplodocus" }!!.toString()
+            diplodocusCode shouldNotContain "val type:"
+            diplodocusCode shouldNotContain "override val type"
+        }
+
+        When("a variant is encoded as the sealed interface type") {
+            val diplodocus = Diplodocus(neckLength = 8.5)
+            val encoded = json.encodeToString(Sauropod.serializer(), diplodocus)
+
+            Then("the discriminator field appears in the JSON with the spec value") {
+                encoded shouldContain """"type":"diplodocus""""
+            }
+
+            Then("variant-specific fields are present") {
+                encoded shouldContain """"neckLength":8.5"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                val decoded = json.decodeFromString(Sauropod.serializer(), encoded)
+                decoded shouldBe diplodocus
+            }
+        }
+
+        When("a JSON payload with the discriminator field is decoded") {
+            val specJson = """{"type":"brachiosaurus","foreLegLength":3.2}"""
+            val decoded = json.decodeFromString(Sauropod.serializer(), specJson)
+
+            Then("the correct variant type is produced") {
+                decoded shouldBe Brachiosaurus(foreLegLength = 3.2)
             }
         }
     }

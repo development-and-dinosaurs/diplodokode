@@ -43,22 +43,18 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
 
+    config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
     val kdoc = if (keyword == "anyOf") "One or more of the following variants may be used.\n"
                else "Exactly one of the following variants must be used.\n"
     interfaceBuilder.addKdoc(kdoc)
 
-    if (discriminatorEnum != null) {
+    val useSerialisedDiscriminator = config.serialisationStrategy != null && discriminatorEnum != null
+    if (discriminatorEnum != null && !useSerialisedDiscriminator) {
       val enumType = ClassName(config.packageName, interfaceName, "Type")
       val enumBuilder = TypeSpec.enumBuilder("Type")
-      config.serialisationStrategy?.let { enumBuilder.addAnnotation(it.classAnnotation) }
-      discriminatorEnum.constants.zip(discriminatorEnum.rawValues).forEach { (kotlinName, rawValue) ->
-        val constantAnnotation = config.serialisationStrategy?.enumConstantAnnotation(rawValue)
-        if (constantAnnotation != null) {
-          enumBuilder.addEnumConstant(kotlinName, TypeSpec.anonymousClassBuilder().addAnnotation(constantAnnotation).build())
-        } else {
-          enumBuilder.addEnumConstant(kotlinName)
-        }
+      discriminatorEnum.constants.zip(discriminatorEnum.rawValues).forEach { (kotlinName, _) ->
+        enumBuilder.addEnumConstant(kotlinName)
       }
       interfaceBuilder.addType(enumBuilder.build())
       interfaceBuilder.addProperty(
@@ -66,6 +62,9 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
               .addModifiers(KModifier.ABSTRACT)
               .build()
       )
+    } else if (discriminatorEnum != null) {
+      config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
+          ?.let { interfaceBuilder.addAnnotation(it) }
     } else {
       schema.discriminator?.let { disc ->
         interfaceBuilder.addKdoc(
@@ -99,7 +98,11 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
       interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
     }
 
-    return FileSpec.builder(config.packageName, interfaceName).addType(interfaceBuilder.build()).build()
+    val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
+    if (useSerialisedDiscriminator) {
+      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
+    }
+    return fileBuilder.addType(interfaceBuilder.build()).build()
   }
 
   private fun generateDataClass(
@@ -111,6 +114,8 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
   ): FileSpec {
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
+
+    val serialiseDiscriminator = config.serialisationStrategy != null && discriminatorOverride != null
 
     val enumClassNames =
         schema.properties
@@ -126,32 +131,36 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
             } ?: emptyMap()
 
     val constructorParams =
-        schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = config.namingStrategy.propertyName(propName)
-          if (propName == discriminatorOverride?.propertyName) {
-            val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-            ParameterSpec.builder(propertyName, enumType)
-                .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
-                .build()
-          } else {
-            val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
-            val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
-            ParameterSpec.builder(propertyName, kotlinType).build()
-          }
-        } ?: emptyList()
+        schema.properties?.entries
+            ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+            ?.map { (propName, propValue) ->
+              val propertyName = config.namingStrategy.propertyName(propName)
+              if (propName == discriminatorOverride?.propertyName) {
+                val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+                ParameterSpec.builder(propertyName, enumType)
+                    .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
+                    .build()
+              } else {
+                val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
+                val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
+                ParameterSpec.builder(propertyName, kotlinType).build()
+              }
+            } ?: emptyList()
 
     val properties =
-        schema.properties?.entries?.map { (propName, propValue) ->
-          val propertyName = config.namingStrategy.propertyName(propName)
-          when (propName) {
-            discriminatorOverride?.propertyName -> {
-              val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-              PropertySpec.builder(propertyName, enumType)
-                .addModifiers(KModifier.OVERRIDE)
-                .initializer(propertyName)
-                .applySerialName(propName, propertyName)
-                .build()
-            }
+        schema.properties?.entries
+            ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+            ?.map { (propName, propValue) ->
+              val propertyName = config.namingStrategy.propertyName(propName)
+              when (propName) {
+                discriminatorOverride?.propertyName -> {
+                  val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+                  PropertySpec.builder(propertyName, enumType)
+                    .addModifiers(KModifier.OVERRIDE)
+                    .initializer(propertyName)
+                    .applySerialName(propName, propertyName)
+                    .build()
+                }
             in interfacePropertyNames -> {
               val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, schema.required?.toSet() ?: emptySet())
               val kotlinType = resolveType(propName, propValue, isNullable, enumClassNames)
@@ -190,7 +199,14 @@ class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig
     val dataClassBuilder =
         TypeSpec.classBuilder(className)
             .addModifiers(KModifier.DATA)
-            .also { builder -> config.serialisationStrategy?.let { builder.addAnnotation(it.classAnnotation) } }
+            .also { builder ->
+              config.serialisationStrategy?.let { strategy ->
+                builder.addAnnotation(strategy.classAnnotation)
+                if (serialiseDiscriminator) {
+                  strategy.variantAnnotation(discriminatorOverride.rawValue)?.let { builder.addAnnotation(it) }
+                }
+              }
+            }
             .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
             .addProperties(properties)
 

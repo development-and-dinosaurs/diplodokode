@@ -553,7 +553,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         "armLength" to Schema(type = "number"),
       ),
     )
-    val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR")
+    val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
 
     When("the generator produces a data class with a discriminator override") {
       val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
@@ -830,6 +830,60 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       Then("each constant has a @SerialName matching the spec value") {
         code shouldContain """@SerialName("carnivore")"""
         code shouldContain """@SerialName("herbivore")"""
+      }
+    }
+
+    When("the generator produces a sealed interface with a discriminator enum") {
+      val schema = Schema(
+        oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Triceratops"),
+        ),
+        discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+      )
+      val discriminatorEnum = DiscriminatorEnum("type", listOf("TYRANNOSAUR", "TRICERATOPS"), listOf("tyrannosaur", "triceratops"))
+      val code = serialisationGenerator.generateFromSchema("Dinosaur", schema, discriminatorEnum = discriminatorEnum).toString()
+
+      Then("the sealed interface is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the sealed interface is annotated with @JsonClassDiscriminator") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
+      }
+
+      Then("no nested Type enum is generated") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("no abstract discriminator property is generated") {
+        code shouldNotContain "val type:"
+      }
+    }
+
+    When("the generator produces a variant data class with a discriminator override") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("type", "armLength"),
+        properties = mapOf(
+          "type" to Schema(type = "string", enum = listOf("tyrannosaur")),
+          "armLength" to Schema(type = "number"),
+        ),
+      )
+      val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
+      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+
+      Then("the data class is annotated with @SerialName for the discriminator value") {
+        code shouldContain """@SerialName("tyrannosaur")"""
+      }
+
+      Then("the discriminator property is omitted from the data class") {
+        code shouldNotContain "val type:"
+        code shouldNotContain "override val type"
+      }
+
+      Then("other properties are generated normally") {
+        code shouldContain "val armLength: Double"
       }
     }
   }

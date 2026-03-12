@@ -13,6 +13,7 @@ data class DiscriminatorOverride(
   val interfaceName: String,
   val propertyName: String,
   val constant: String,
+  val rawValue: String,
 )
 
 data class ResolvedSpec(
@@ -91,7 +92,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
           val constant = config.namingStrategy.enumConstant(rawValue)
           rawValues.add(rawValue)
           constants.add(constant)
-          stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant)
+          stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant, rawValue)
         }
       }
 

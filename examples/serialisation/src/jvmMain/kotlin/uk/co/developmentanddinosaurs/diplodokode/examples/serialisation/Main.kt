@@ -2,9 +2,12 @@ package uk.co.developmentanddinosaurs.diplodokode.examples.serialisation
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generated.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generated.Era
 import uk.co.developmentanddinosaurs.diplodokode.generated.Fossil
+import uk.co.developmentanddinosaurs.diplodokode.generated.Sauropod
+import uk.co.developmentanddinosaurs.diplodokode.generated.Theropod
 
 val json = Json {
     prettyPrint = true
@@ -84,4 +87,23 @@ fun main() {
     Era.entries.forEach { era ->
         println("  ${era.name} -> ${json.encodeToString(era)}")
     }
+    println()
+
+    println("--- Polymorphism: oneOf + discriminator ---")
+    println("Dinosaur is a sealed interface with @JsonClassDiscriminator(\"classification\").")
+    println("Variants carry @SerialName; the 'classification' field is synthetic (not a Kotlin property).")
+    println()
+    val dinosaurs: List<Dinosaur> = listOf(
+        Theropod(name = "Tyrannosaurus rex"),
+        Sauropod(name = "Diplodocus carnegii"),
+    )
+    println("Encoded (each variant includes the discriminator field automatically):")
+    dinosaurs.forEach { dinosaur ->
+        println("  ${json.encodeToString(Dinosaur.serializer(), dinosaur)}")
+    }
+    println()
+    val theropodJson = """{"classification":"theropod","name":"Velociraptor mongoliensis"}"""
+    val decoded: Dinosaur = json.decodeFromString(Dinosaur.serializer(), theropodJson)
+    println("Decoded from '$theropodJson':")
+    println("  $decoded  (type: ${decoded::class.simpleName})")
 }

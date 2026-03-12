@@ -50,6 +50,42 @@ components:
           type: number
           description: Estimated completeness of the fossil as a percentage
 
+    Dinosaur:
+      description: A dinosaur that left a fossil record
+      oneOf:
+        - $ref: '#/components/schemas/Theropod'
+        - $ref: '#/components/schemas/Sauropod'
+      discriminator:
+        propertyName: classification
+
+    Theropod:
+      type: object
+      description: A bipedal carnivorous dinosaur
+      required:
+        - classification
+        - name
+      properties:
+        classification:
+          type: string
+          enum: [theropod]
+        name:
+          type: string
+          description: Species name
+
+    Sauropod:
+      type: object
+      description: A long-necked herbivorous dinosaur
+      required:
+        - classification
+        - name
+      properties:
+        classification:
+          type: string
+          enum: [sauropod]
+        name:
+          type: string
+          description: Species name
+
 paths:
   /fossils:
     get:

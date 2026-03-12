@@ -30,7 +30,34 @@ interface SerializationStrategy {
      * @param specName the original property key from the OpenAPI spec (e.g. `"arm_length"`)
      */
     fun propertyAnnotation(specName: String): AnnotationSpec?
+
+    /**
+     * Returns an [AnnotationSpec] to place on a sealed interface to declare which JSON field acts
+     * as the polymorphic discriminator, or `null` if the library handles this differently.
+     *
+     * @param propertyName the discriminator property name from the OpenAPI spec (e.g. `"type"`)
+     */
+    fun discriminatorAnnotation(propertyName: String): AnnotationSpec? = null
+
+    /**
+     * Returns an [AnnotationSpec] to place on a variant data class to declare its discriminator
+     * wire value, or `null` if the library does not support this.
+     *
+     * @param rawValue the discriminator value from the OpenAPI spec (e.g. `"tyrannosaur"`)
+     */
+    fun variantAnnotation(rawValue: String): AnnotationSpec? = null
+
+    /**
+     * Returns a file-level [AnnotationSpec] required when [discriminatorAnnotation] is used, or
+     * `null` if no opt-in or file annotation is needed.
+     *
+     * For example, `@JsonClassDiscriminator` is `@ExperimentalSerializationApi`-gated, so this
+     * returns `@OptIn(ExperimentalSerializationApi::class)`.
+     */
+    fun discriminatorFileAnnotation(): AnnotationSpec? = null
 }
+
+private const val KOTLINX_SERIALIZATION = "kotlinx.serialization"
 
 /**
  * Emits `@Serializable` from `kotlinx.serialization`.
@@ -38,14 +65,27 @@ interface SerializationStrategy {
  * Consumers must apply `kotlin("plugin.serialization")` to their project and add
  * `kotlinx-serialization-core` to their dependencies so that the generated annotations compile.
  */
-private val KOTLINX_SERIAL_NAME = ClassName("kotlinx.serialization", "SerialName")
+private val KOTLINX_SERIAL_NAME = ClassName(KOTLINX_SERIALIZATION, "SerialName")
+private val KOTLINX_JSON_CLASS_DISCRIMINATOR = ClassName("kotlinx.serialization.json", "JsonClassDiscriminator")
 
 data object KotlinxSerialisationStrategy : SerializationStrategy {
-    override val classAnnotation: ClassName = ClassName("kotlinx.serialization", "Serializable")
+    override val classAnnotation: ClassName = ClassName(KOTLINX_SERIALIZATION, "Serializable")
 
     override fun enumConstantAnnotation(rawValue: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", rawValue).build()
 
     override fun propertyAnnotation(specName: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", specName).build()
+
+    override fun discriminatorAnnotation(propertyName: String): AnnotationSpec =
+        AnnotationSpec.builder(KOTLINX_JSON_CLASS_DISCRIMINATOR).addMember("%S", propertyName).build()
+
+    override fun variantAnnotation(rawValue: String): AnnotationSpec =
+        AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", rawValue).build()
+
+    override fun discriminatorFileAnnotation(): AnnotationSpec =
+        AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
+            .addMember("%T::class", ClassName(KOTLINX_SERIALIZATION, "ExperimentalSerializationApi"))
+            .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
+            .build()
 }
