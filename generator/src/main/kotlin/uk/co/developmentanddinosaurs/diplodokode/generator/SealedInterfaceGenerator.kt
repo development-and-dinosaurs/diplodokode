@@ -42,7 +42,7 @@ internal class SealedInterfaceGenerator(
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
     if (useSerialisedDiscriminator) {
-      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
+      config.serialisationStrategy.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
     return fileBuilder.addType(interfaceBuilder.build()).build()
   }

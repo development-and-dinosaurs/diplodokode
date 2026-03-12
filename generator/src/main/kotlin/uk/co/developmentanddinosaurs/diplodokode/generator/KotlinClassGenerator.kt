@@ -3,7 +3,7 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 import com.squareup.kotlinpoet.FileSpec
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
-class KotlinClassGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
+class KotlinClassGenerator(config: GeneratorConfig = GeneratorConfig()) {
 
   private val typeResolver = TypeResolver(config)
   private val enumClassGenerator = EnumClassGenerator(config)
