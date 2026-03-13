@@ -1,12 +1,18 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 enum class PolymorphismStrategy {
-  /** Emit a discriminator annotation on the sealed interface (e.g. `@JsonClassDiscriminator`). */
+  /**
+   * Emit a discriminator annotation on the sealed interface (e.g. `@JsonClassDiscriminator`).
+   * The Type enum is suppressed only when the configured [SerializationStrategy] returns a
+   * non-null [SerializationStrategy.discriminatorAnnotation]; otherwise the Kotlin-typed Type
+   * enum is generated as a fallback so the hierarchy always has a discrimination mechanism.
+   */
   ANNOTATION,
 
   /**
    * Generate a `diplodokodeModule: SerializersModule` file that registers sealed hierarchies
    * polymorphically. Works with any kotlinx.serialization format (JSON, YAML, etc.).
+   * The Type enum is always suppressed when a serialisation strategy is configured.
    */
   MODULE,
 }

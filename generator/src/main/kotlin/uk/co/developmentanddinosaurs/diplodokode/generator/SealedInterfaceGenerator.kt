@@ -30,7 +30,10 @@ internal class SealedInterfaceGenerator(
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
     interfaceBuilder.addKdoc(variantKdoc(keyword))
 
-    val useSerialisedDiscriminator = config.serialisationStrategy != null && discriminatorEnum != null
+    val useSerialisedDiscriminator = discriminatorEnum != null && when (config.polymorphismStrategy) {
+      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName) != null
+      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+    }
     applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
 
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
@@ -42,7 +45,7 @@ internal class SealedInterfaceGenerator(
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
     if (useSerialisedDiscriminator && config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
-      config.serialisationStrategy.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
+      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
     return fileBuilder.addType(interfaceBuilder.build()).build()
   }
