@@ -487,11 +487,6 @@ dependencies {
 ```
 
 ```kotlin
-import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
-import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
-import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinxSerialisationStrategy
-import java.io.File
-
 val config = GeneratorConfig(
     packageName = "com.example.api.models",
     serialisationStrategy = KotlinxSerialisationStrategy,
