@@ -20,6 +20,7 @@ gradlePlugin {
       implementationClass = "uk.co.developmentanddinosaurs.diplodokode.plugin.DiplodokodePlugin"
       tags.set(listOf("openapi-3.0", "openapi", "generator", "codegen", "kotlin"))
       vcsUrl = "https://github.com/development-and-dinosaurs/diplodokode"
+      website = "https://github.com/development-and-dinosaurs/diplodokode"
       compatibility {
         features {
           configurationCache = true

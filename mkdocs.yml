@@ -1,0 +1,63 @@
+site_name: Diplodokode
+site_description: Generate roarsome Kotlin models from an OpenAPI specification file with ease.
+site_url: https://diplodokode.developmentanddinosaurs.co.uk
+repo_url: https://github.com/development-and-dinosaurs/diplodokode
+repo_name: development-and-dinosaurs/diplodokode
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Getting started: quick-start.md
+  - Guides:
+    - Type mapping: type-mapping.md
+    - Polymorphism: polymorphism.md
+    - Serialisation: serialisation.md
+  - Reference:
+    - Plugin configuration: configuration.md
+    - Library usage: library.md
+  - Contributing: contributing.md
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
