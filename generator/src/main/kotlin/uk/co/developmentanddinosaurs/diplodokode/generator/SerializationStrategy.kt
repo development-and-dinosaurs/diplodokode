@@ -64,6 +64,11 @@ private const val KOTLINX_SERIALIZATION = "kotlinx.serialization"
  *
  * Consumers must apply `kotlin("plugin.serialization")` to their project and add
  * `kotlinx-serialization-core` to their dependencies so that the generated annotations compile.
+ *
+ * When discriminator-based polymorphism is used (i.e. the OpenAPI spec contains a `discriminator`
+ * on a `oneOf`/`anyOf` schema), this strategy also emits `@JsonClassDiscriminator` from
+ * `kotlinx.serialization.json`. In that case consumers must additionally depend on
+ * `kotlinx-serialization-json`.
  */
 private val KOTLINX_SERIAL_NAME = ClassName(KOTLINX_SERIALIZATION, "SerialName")
 private val KOTLINX_JSON_CLASS_DISCRIMINATOR = ClassName("kotlinx.serialization.json", "JsonClassDiscriminator")
