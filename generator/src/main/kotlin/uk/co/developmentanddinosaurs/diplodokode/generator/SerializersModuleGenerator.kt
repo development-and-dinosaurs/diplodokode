@@ -20,10 +20,10 @@ internal class SerializersModuleGenerator(private val config: GeneratorConfig) {
     val initializer = CodeBlock.builder()
         .beginControlFlow("%T", SERIALIZERS_MODULE_CLASS)
         .apply {
-          interfaceVariants.forEach { (interfaceName, variants) ->
+          interfaceVariants.entries.sortedBy { it.key }.forEach { (interfaceName, variants) ->
             val interfaceClass = ClassName(config.packageName, config.namingStrategy.className(interfaceName))
             beginControlFlow("%M(%T::class)", POLYMORPHIC_FN, interfaceClass)
-            variants.forEach { variantName ->
+            variants.sorted().forEach { variantName ->
               val variantClass = ClassName(config.packageName, config.namingStrategy.className(variantName))
               addStatement("%M(%T::class)", SUBCLASS_FN, variantClass)
             }

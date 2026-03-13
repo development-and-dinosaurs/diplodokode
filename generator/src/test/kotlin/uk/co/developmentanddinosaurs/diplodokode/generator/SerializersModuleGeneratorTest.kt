@@ -70,6 +70,33 @@ class SerializersModuleGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("interface and variant names supplied in reverse-alphabetical order") {
+    val interfaceVariants = linkedMapOf(
+      "Sauropod" to listOf("Diplodocus", "Brachiosaurus"),
+      "Dinosaur" to listOf("Tyrannosaur", "Triceratops"),
+    )
+
+    When("the generator produces the module file") {
+      val code = generator().generate(interfaceVariants)!!.toString()
+
+      Then("interfaces appear in alphabetical order regardless of input order") {
+        val dinosaurPos = code.indexOf("polymorphic(Dinosaur::class)")
+        val sauropodPos = code.indexOf("polymorphic(Sauropod::class)")
+        dinosaurPos shouldNotBe -1
+        sauropodPos shouldNotBe -1
+        (dinosaurPos < sauropodPos) shouldBe true
+      }
+
+      Then("variants within each interface appear in alphabetical order") {
+        val brachiosaurusPos = code.indexOf("subclass(Brachiosaurus::class)")
+        val diplodocusPos = code.indexOf("subclass(Diplodocus::class)")
+        brachiosaurusPos shouldNotBe -1
+        diplodocusPos shouldNotBe -1
+        (brachiosaurusPos < diplodocusPos) shouldBe true
+      }
+    }
+  }
+
   Given("lowercase schema names") {
     val interfaceVariants = mapOf("sauropod" to listOf("diplodocus", "brachiosaurus"))
 
