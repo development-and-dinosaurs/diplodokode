@@ -10,7 +10,7 @@ kotlin {
   sourceSets {
     commonMain {
       dependencies {
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+        implementation("net.mamoe.yamlkt:yamlkt:0.13.0")
       }
       kotlin.srcDir("build/generated/kotlin")
     }
@@ -32,7 +32,7 @@ val jvmRuntimeClasspath by configurations
 
 tasks.register<JavaExec>("run") {
   group = "application"
-  mainClass.set("uk.co.developmentanddinosaurs.diplodokode.examples.serialisation.MainKt")
+  mainClass.set("uk.co.developmentanddinosaurs.diplodokode.examples.serialisation.yaml.MainKt")
   classpath = jvmRuntimeClasspath +
       files(tasks.named("compileKotlinJvm").map { (it as org.jetbrains.kotlin.gradle.tasks.KotlinCompile).destinationDirectory }) +
       files(tasks.named("jvmProcessResources").map { (it as org.gradle.language.jvm.tasks.ProcessResources).destinationDir })
