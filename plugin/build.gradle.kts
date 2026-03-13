@@ -16,6 +16,7 @@ gradlePlugin {
       displayName = "Diplodokode"
       description = "Generate roarsome Kotlin models from an OpenAPI specification file with ease"
       implementationClass = "uk.co.developmentanddinosaurs.diplodokode.plugin.DiplodokodePlugin"
+      tags.set(listOf("openapi-3.0", "openapi", "generator", "codegen", "kotlin"))
     }
   }
 }
