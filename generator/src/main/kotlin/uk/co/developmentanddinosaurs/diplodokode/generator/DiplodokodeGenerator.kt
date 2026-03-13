@@ -26,7 +26,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
       )
     }
 
-    val moduleFile = if (config.serialisationStrategy != null) {
+    val moduleFile = if (config.serialisationStrategy != null && config.polymorphismStrategy == PolymorphismStrategy.MODULE) {
       val interfaceVariants = mutableMapOf<String, MutableList<String>>()
       implementedInterfaces.forEach { (variantName, interfaces) ->
         interfaces.forEach { interfaceName ->

@@ -138,6 +138,50 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a discriminator enum, serialisation enabled, and ANNOTATION polymorphism strategy") {
+    val schema = Schema(
+      oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+      ),
+      discriminator = Discriminator("type"),
+    )
+    val discriminatorEnum = DiscriminatorEnum(
+      "type",
+      listOf("TYRANNOSAUR", "TRICERATOPS"),
+      listOf("tyrannosaur", "triceratops"),
+    )
+    val annotationStrategy = object : SerializationStrategy {
+      override val classAnnotation = com.squareup.kotlinpoet.ClassName("com.example", "Serializable")
+      override fun enumConstantAnnotation(rawValue: String) = null
+      override fun propertyAnnotation(specName: String) = null
+      override fun discriminatorAnnotation(propertyName: String) =
+        com.squareup.kotlinpoet.AnnotationSpec.builder(
+          com.squareup.kotlinpoet.ClassName("com.example", "ClassDiscriminator")
+        ).addMember("%S", propertyName).build()
+    }
+    val config = GeneratorConfig(
+      serialisationStrategy = annotationStrategy,
+      polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator(config).generate("Dinosaur", schema, schema.oneOf!!, "oneOf", discriminatorEnum).toString()
+
+      Then("the discriminator annotation from the strategy is present") {
+        code shouldContain """@ClassDiscriminator("type")"""
+      }
+
+      Then("no nested Type enum is generated") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("no discriminator property is generated") {
+        code shouldNotContain "val type:"
+      }
+    }
+  }
+
   Given("a schema with a discriminator but not all variants carry it (partial discriminator)") {
     val schema = Schema(
       oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),

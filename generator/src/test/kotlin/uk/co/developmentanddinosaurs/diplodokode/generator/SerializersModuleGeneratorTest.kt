@@ -88,6 +88,30 @@ class SerializersModuleGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a custom modulePackage is configured") {
+    val config = GeneratorConfig(
+      packageName = "com.example.models",
+      modulePackage = "com.example.serialisation",
+      serialisationStrategy = KotlinxSerialisationStrategy,
+    )
+    val interfaceVariants = mapOf("Sauropod" to listOf("Diplodocus", "Brachiosaurus"))
+
+    When("the generator produces the module file") {
+      val file = generator(config).generate(interfaceVariants)!!
+
+      Then("the file is placed in the modulePackage") {
+        file.packageName shouldBe "com.example.serialisation"
+      }
+
+      Then("class references still use the models packageName") {
+        val code = file.toString()
+        code shouldContain "com.example.models.Sauropod"
+        code shouldContain "com.example.models.Diplodocus"
+        code shouldContain "com.example.models.Brachiosaurus"
+      }
+    }
+  }
+
   Given("a spec file with a oneOf sealed interface and serialisation enabled") {
     val specGenerator = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
 
@@ -121,6 +145,23 @@ class SerializersModuleGeneratorTest : BehaviorSpec({
 
   Given("a spec file with a oneOf sealed interface but no serialisation strategy") {
     val specGenerator = DiplodokodeGenerator(GeneratorConfig())
+
+    When("the generator processes a polymorphic spec") {
+      val files = specGenerator.generateFromSpec(java.io.File("src/test/resources/discriminator-serialisation-api.yaml"))
+
+      Then("no DiplodokodeModule file is generated") {
+        files.find { it.name == "DiplodokodeModule" } shouldBe null
+      }
+    }
+  }
+
+  Given("serialisation is enabled but polymorphismStrategy is ANNOTATION") {
+    val specGenerator = DiplodokodeGenerator(
+      GeneratorConfig(
+        serialisationStrategy = KotlinxSerialisationStrategy,
+        polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
+      )
+    )
 
     When("the generator processes a polymorphic spec") {
       val files = specGenerator.generateFromSpec(java.io.File("src/test/resources/discriminator-serialisation-api.yaml"))

@@ -37,7 +37,8 @@ internal class SerializersModuleGenerator(private val config: GeneratorConfig) {
         .initializer(initializer)
         .build()
 
-    return FileSpec.builder(config.packageName, "DiplodokodeModule")
+    val filePackage = config.modulePackage ?: config.packageName
+    return FileSpec.builder(filePackage, "DiplodokodeModule")
         .addProperty(property)
         .build()
   }
