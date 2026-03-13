@@ -539,6 +539,7 @@ object MySerializationStrategy : SerializationStrategy {
 ./gradlew -p examples/simple generateDiplodokode
 ./gradlew -p examples/polymorphism generateDiplodokode
 ./gradlew -p examples/serialisation generateDiplodokode
+./gradlew -p examples/serialisation-yaml generateDiplodokode
 
 # Show the current version (derived from git tags)
 ./gradlew currentVersion
@@ -555,4 +556,4 @@ object MySerializationStrategy : SerializationStrategy {
 | `diplodokode-examples-serialisation`      | `examples/serialisation/`      | —                                                                 |
 | `diplodokode-examples-serialisation-yaml` | `examples/serialisation-yaml/` | —                                                                 |
 
-Both example projects are standalone composite builds — they use `includeBuild("../..") ` in their `settings.gradle.kts`.
+All example projects are standalone composite builds — they use `includeBuild("../..") ` in their `settings.gradle.kts` so no `publishToMavenLocal` step is needed.
