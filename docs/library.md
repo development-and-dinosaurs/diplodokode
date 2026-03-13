@@ -18,10 +18,6 @@ dependencies {
 ## Basic usage
 
 ```kotlin
-import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
-import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
-import java.io.File
-
 val generator = DiplodokodeGenerator(GeneratorConfig(
     packageName = "com.example.api.models",
 ))

@@ -84,10 +84,10 @@ properties:
 
 ```kotlin
 @SerialName("discovery_year")
-val discoveryYear: Int?,
+val discoveryYear: Int?
 
 @SerialName("discovery_location")
-val discoveryLocation: String?,
+val discoveryLocation: String?
 ```
 
 ---
