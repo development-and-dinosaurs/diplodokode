@@ -9,6 +9,7 @@ sonarqube = "7.2.2.6593"
 spotless = "8.2.1"
 vanniktechMavenPublish = "0.36.0"
 axionRelease = "1.21.1"
+gradlePublish = "2.1.0"
 
 [libraries]
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
@@ -26,3 +27,4 @@ sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 vanniktech-maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }
 axion-release = { id = "pl.allegro.tech.build.axion-release", version.ref = "axionRelease" }
+gradle-publish = { id = "com.gradle.plugin-publish", version.ref = "gradlePublish" }

@@ -2,6 +2,7 @@ import com.vanniktech.maven.publish.DeploymentValidation
 
 plugins {
   `java-gradle-plugin`
+  alias(libs.plugins.gradle.publish)
   alias(libs.plugins.vanniktech.maven.publish)
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.kotlin.serialization)
