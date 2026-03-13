@@ -13,6 +13,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diplodocus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Sauropod
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.sauropodModule
 import java.io.File
 
 /**
@@ -26,7 +27,7 @@ import java.io.File
  */
 class SerialisationIntegrationTest : BehaviorSpec({
 
-    val json = Json { explicitNulls = false }
+    val json = Json { explicitNulls = false; serializersModule = sauropodModule }
 
     val generator = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
 
@@ -149,10 +150,13 @@ class SerialisationIntegrationTest : BehaviorSpec({
             code shouldContain "@Serializable"
         }
 
-        Then("the sealed interface is annotated with @JsonClassDiscriminator") {
-            val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
-            code shouldContain """@JsonClassDiscriminator("type")"""
-            code shouldContain "ExperimentalSerializationApi"
+        Then("a DiplodokodeModule file is generated registering the sealed hierarchy") {
+            val moduleCode = generatedFiles.find { it.name == "DiplodokodeModule" }!!.toString()
+            moduleCode shouldContain "diplodokodeModule"
+            moduleCode shouldContain "SerializersModule"
+            moduleCode shouldContain "polymorphic(Sauropod::class)"
+            moduleCode shouldContain "subclass(Diplodocus::class)"
+            moduleCode shouldContain "subclass(Brachiosaurus::class)"
         }
 
         Then("no nested Type enum is generated on the sealed interface") {

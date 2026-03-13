@@ -124,10 +124,6 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
         code shouldContain "@Serializable"
       }
 
-      Then("it is annotated with @JsonClassDiscriminator") {
-        code shouldContain """@JsonClassDiscriminator("type")"""
-      }
-
       Then("no nested Type enum is generated") {
         code shouldNotContain "enum class Type"
       }
@@ -136,8 +132,8 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
         code shouldNotContain "val type:"
       }
 
-      Then("the file opts in to ExperimentalSerializationApi") {
-        code shouldContain "ExperimentalSerializationApi"
+      Then("no @JsonClassDiscriminator annotation is present") {
+        code shouldNotContain "JsonClassDiscriminator"
       }
     }
   }

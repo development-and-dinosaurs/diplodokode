@@ -60,18 +60,19 @@ interface SerializationStrategy {
 private const val KOTLINX_SERIALIZATION = "kotlinx.serialization"
 
 /**
- * Emits `@Serializable` from `kotlinx.serialization`.
+ * Emits `@Serializable` and `@SerialName` from `kotlinx.serialization`.
  *
  * Consumers must apply `kotlin("plugin.serialization")` to their project and add
  * `kotlinx-serialization-core` to their dependencies so that the generated annotations compile.
  *
- * When discriminator-based polymorphism is used (i.e. the OpenAPI spec contains a `discriminator`
- * on a `oneOf`/`anyOf` schema), this strategy also emits `@JsonClassDiscriminator` from
- * `kotlinx.serialization.json`. In that case consumers must additionally depend on
- * `kotlinx-serialization-json`.
+ * Polymorphic sealed hierarchies are registered in the generated `diplodokodeModule`
+ * (`SerializersModule`). Pass this module to whichever serializer format you use:
+ * ```kotlin
+ * val json = Json { serializersModule = diplodokodeModule }
+ * val yaml = Yaml { serializersModule = diplodokodeModule }
+ * ```
  */
 private val KOTLINX_SERIAL_NAME = ClassName(KOTLINX_SERIALIZATION, "SerialName")
-private val KOTLINX_JSON_CLASS_DISCRIMINATOR = ClassName("kotlinx.serialization.json", "JsonClassDiscriminator")
 
 data object KotlinxSerialisationStrategy : SerializationStrategy {
     override val classAnnotation: ClassName = ClassName(KOTLINX_SERIALIZATION, "Serializable")
@@ -82,15 +83,6 @@ data object KotlinxSerialisationStrategy : SerializationStrategy {
     override fun propertyAnnotation(specName: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", specName).build()
 
-    override fun discriminatorAnnotation(propertyName: String): AnnotationSpec =
-        AnnotationSpec.builder(KOTLINX_JSON_CLASS_DISCRIMINATOR).addMember("%S", propertyName).build()
-
     override fun variantAnnotation(rawValue: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", rawValue).build()
-
-    override fun discriminatorFileAnnotation(): AnnotationSpec =
-        AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-            .addMember("%T::class", ClassName(KOTLINX_SERIALIZATION, "ExperimentalSerializationApi"))
-            .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
-            .build()
 }

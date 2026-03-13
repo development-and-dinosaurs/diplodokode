@@ -30,8 +30,7 @@ internal class SealedInterfaceGenerator(
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
     interfaceBuilder.addKdoc(variantKdoc(keyword))
 
-    val useSerialisedDiscriminator = discriminatorEnum != null &&
-        config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName) != null
+    val useSerialisedDiscriminator = config.serialisationStrategy != null && discriminatorEnum != null
     applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
 
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
