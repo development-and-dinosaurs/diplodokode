@@ -1,7 +1,9 @@
 import com.vanniktech.maven.publish.DeploymentValidation
+import org.gradle.plugin.compatibility.compatibility
 
 plugins {
   `java-gradle-plugin`
+  alias(libs.plugins.gradle.compatibility)
   alias(libs.plugins.gradle.publish)
   alias(libs.plugins.vanniktech.maven.publish)
   alias(libs.plugins.kotlin.jvm)
@@ -17,6 +19,11 @@ gradlePlugin {
       description = "Generate roarsome Kotlin models from an OpenAPI specification file with ease"
       implementationClass = "uk.co.developmentanddinosaurs.diplodokode.plugin.DiplodokodePlugin"
       tags.set(listOf("openapi-3.0", "openapi", "generator", "codegen", "kotlin"))
+      compatibility {
+        features {
+          configurationCache = true
+        }
+      }
     }
   }
 }

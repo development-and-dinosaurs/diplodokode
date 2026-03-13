@@ -1,5 +1,6 @@
 [versions]
 axionRelease = "1.21.1"
+gradleCompatibility = "1.0.0"
 gradlePublish = "2.1.0"
 kotest = "6.1.3"
 kotlin = "2.3.10"
@@ -21,6 +22,7 @@ yamlkt = { module = "net.mamoe.yamlkt:yamlkt", version.ref = "yamlkt" }
 
 [plugins]
 axion-release = { id = "pl.allegro.tech.build.axion-release", version.ref = "axionRelease" }
+gradle-compatibility = { id = "org.gradle.plugin-compatibility", version.ref = "gradleCompatibility" }
 gradle-publish = { id = "com.gradle.plugin-publish", version.ref = "gradlePublish" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
