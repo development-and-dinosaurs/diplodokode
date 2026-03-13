@@ -6,12 +6,14 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 data class DiscriminatorEnum(
   val propertyName: String,
   val constants: List<String>,
+  val rawValues: List<String> = constants,
 )
 
 data class DiscriminatorOverride(
   val interfaceName: String,
   val propertyName: String,
   val constant: String,
+  val rawValue: String,
 )
 
 data class ResolvedSpec(
@@ -81,13 +83,16 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       val discriminator = schema.discriminator ?: return@forEach
 
       val stagedOverrides = mutableMapOf<String, DiscriminatorOverride>()
+      val rawValues = mutableListOf<String>()
       val constants = mutableListOf<String>()
       refVariants.forEach { variantName ->
         val variantSchema = flatSchemas[variantName] ?: return@forEach
         if (!variantSchema.properties.isNullOrEmpty() && variantSchema.properties.containsKey(discriminator.propertyName)) {
-          val constant = config.namingStrategy.enumConstant(discriminatorValueFor(variantName, discriminator, variantSchema))
+          val rawValue = discriminatorValueFor(variantName, discriminator, variantSchema)
+          val constant = config.namingStrategy.enumConstant(rawValue)
+          rawValues.add(rawValue)
           constants.add(constant)
-          stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant)
+          stagedOverrides[variantName] = DiscriminatorOverride(interfaceName, discriminator.propertyName, constant, rawValue)
         }
       }
 
@@ -96,7 +101,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       // cannot be satisfied by all implementors, producing uncompilable Kotlin. Fall back to
       // abstract val prop: String in that case.
       if (constants.size == refVariants.size && constants.isNotEmpty()) {
-        enumMap[interfaceName] = DiscriminatorEnum(discriminator.propertyName, constants)
+        enumMap[interfaceName] = DiscriminatorEnum(discriminator.propertyName, constants, rawValues)
         overrideMap.putAll(stagedOverrides)
       }
     }
@@ -109,12 +114,23 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       interfaceMap: Map<String, List<String>>,
   ): Map<String, Set<String>> =
       interfaceMap.mapValues { (_, interfaces) ->
-        interfaces.flatMap { ifaceName ->
-          val ifaceSchema = rawSchemas[ifaceName] ?: return@flatMap emptyList()
-          val discriminatorPropName = ifaceSchema.discriminator?.propertyName
-          ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
-        }.toSet()
+        collectTransitiveProperties(interfaces, rawSchemas, interfaceMap, mutableSetOf()).toSet()
       }.filterValues { it.isNotEmpty() }
+
+  private fun collectTransitiveProperties(
+      interfaces: List<String>,
+      rawSchemas: Map<String, Schema>,
+      interfaceMap: Map<String, List<String>>,
+      visited: MutableSet<String>,
+  ): List<String> =
+      interfaces.flatMap { ifaceName ->
+        if (!visited.add(ifaceName)) return@flatMap emptyList()
+        val ifaceSchema = rawSchemas[ifaceName] ?: return@flatMap emptyList()
+        val discriminatorPropName = ifaceSchema.discriminator?.propertyName
+        val ownProperties = ifaceSchema.properties?.keys?.filter { it != discriminatorPropName } ?: emptyList()
+        val ancestorProperties = collectTransitiveProperties(interfaceMap[ifaceName] ?: emptyList(), rawSchemas, interfaceMap, visited)
+        ownProperties + ancestorProperties
+      }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
     discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }

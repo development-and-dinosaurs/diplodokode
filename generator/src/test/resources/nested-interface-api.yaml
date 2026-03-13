@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Nested Interface API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      description: Any dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Sauropod'
+        - $ref: '#/components/schemas/Theropod'
+      properties:
+        era:
+          type: string
+          description: The geological era the dinosaur lived in
+
+    Sauropod:
+      description: A long-necked herbivorous dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Diplodocus'
+        - $ref: '#/components/schemas/Brachiosaurus'
+      properties:
+        neckLength:
+          type: number
+          description: Neck length in metres
+
+    Theropod:
+      description: A bipedal carnivorous dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+      properties:
+        bipedal:
+          type: boolean
+
+    Diplodocus:
+      type: object
+      required:
+        - era
+        - neckLength
+        - bodyLength
+      properties:
+        era:
+          type: string
+        neckLength:
+          type: number
+        bodyLength:
+          type: number
+          description: Total body length in metres
+
+    Brachiosaurus:
+      type: object
+      required:
+        - era
+        - neckLength
+        - height
+      properties:
+        era:
+          type: string
+        neckLength:
+          type: number
+        height:
+          type: number
+          description: Height at the shoulder in metres
+
+    Tyrannosaur:
+      type: object
+      required:
+        - era
+        - bipedal
+        - armLength
+      properties:
+        era:
+          type: string
+        bipedal:
+          type: boolean
+        armLength:
+          type: number
+          description: Arm length in metres
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a dinosaur
+      responses:
+        '200':
+          description: A dinosaur

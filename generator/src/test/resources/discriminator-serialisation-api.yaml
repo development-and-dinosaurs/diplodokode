@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: Discriminator Serialisation API
+  version: "1.0"
+
+components:
+  schemas:
+    Sauropod:
+      description: A long-necked herbivorous dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Diplodocus'
+        - $ref: '#/components/schemas/Brachiosaurus'
+      discriminator:
+        propertyName: type
+    Diplodocus:
+      type: object
+      required:
+        - type
+        - neckLength
+      properties:
+        type:
+          type: string
+          enum: [diplodocus]
+        neckLength:
+          type: number
+          description: Length of the neck in metres
+    Brachiosaurus:
+      type: object
+      required:
+        - type
+        - foreLegLength
+      properties:
+        type:
+          type: string
+          enum: [brachiosaurus]
+        foreLegLength:
+          type: number
+          description: Length of the fore legs in metres
+
+paths:
+  /sauropods:
+    get:
+      summary: Get a list of sauropods
+      responses:
+        '200':
+          description: A list of sauropods

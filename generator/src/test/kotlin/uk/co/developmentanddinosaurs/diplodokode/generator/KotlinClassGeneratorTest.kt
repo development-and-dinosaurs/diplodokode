@@ -553,7 +553,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         "armLength" to Schema(type = "number"),
       ),
     )
-    val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR")
+    val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
 
     When("the generator produces a data class with a discriminator override") {
       val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
@@ -768,6 +768,154 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       Then("the property name is converted to camelCase") {
         code shouldContain "val contentType: String"
         code shouldNotContain "`content-type`"
+      }
+    }
+  }
+
+  Given("a kotlinx serialisation strategy") {
+    val serialisationGenerator = KotlinClassGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+
+    When("the generator produces a data class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string")),
+      )
+      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("the data class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the import for Serializable is present") {
+        code shouldContain "import kotlinx.serialization.Serializable"
+      }
+    }
+
+    When("the generator produces a top-level enum class") {
+      val schema = Schema(enum = listOf("tyrannosaur", "triceratops"))
+      val code = serialisationGenerator.generateFromSchema("DinosaurType", schema).toString()
+
+      Then("the enum class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the import for Serializable is present") {
+        code shouldContain "import kotlinx.serialization.Serializable"
+      }
+
+      Then("each constant has a @SerialName matching the spec value") {
+        code shouldContain """@SerialName("tyrannosaur")"""
+        code shouldContain """@SerialName("triceratops")"""
+      }
+
+      Then("the Kotlin constant names are still uppercased") {
+        code shouldContain "TYRANNOSAUR"
+        code shouldContain "TRICERATOPS"
+      }
+    }
+
+    When("the generator produces an inline enum companion class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("diet"),
+        properties = mapOf("diet" to Schema(type = "string", enum = listOf("carnivore", "herbivore"))),
+      )
+      val code = serialisationGenerator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the inline enum class is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("each constant has a @SerialName matching the spec value") {
+        code shouldContain """@SerialName("carnivore")"""
+        code shouldContain """@SerialName("herbivore")"""
+      }
+    }
+
+    When("the generator produces a sealed interface with a discriminator enum") {
+      val schema = Schema(
+        oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Triceratops"),
+        ),
+        discriminator = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator("type"),
+      )
+      val discriminatorEnum = DiscriminatorEnum("type", listOf("TYRANNOSAUR", "TRICERATOPS"), listOf("tyrannosaur", "triceratops"))
+      val code = serialisationGenerator.generateFromSchema("Dinosaur", schema, discriminatorEnum = discriminatorEnum).toString()
+
+      Then("the sealed interface is annotated with @Serializable") {
+        code shouldContain "@Serializable"
+      }
+
+      Then("the sealed interface is annotated with @JsonClassDiscriminator") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
+      }
+
+      Then("no nested Type enum is generated") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("no abstract discriminator property is generated") {
+        code shouldNotContain "val type:"
+      }
+    }
+
+    When("the generator produces a variant data class with a discriminator override") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("type", "armLength"),
+        properties = mapOf(
+          "type" to Schema(type = "string", enum = listOf("tyrannosaur")),
+          "armLength" to Schema(type = "number"),
+        ),
+      )
+      val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
+      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+
+      Then("the data class is annotated with @SerialName for the discriminator value") {
+        code shouldContain """@SerialName("tyrannosaur")"""
+      }
+
+      Then("the discriminator property is omitted from the data class") {
+        code shouldNotContain "val type:"
+        code shouldNotContain "override val type"
+      }
+
+      Then("other properties are generated normally") {
+        code shouldContain "val armLength: Double"
+      }
+    }
+  }
+
+  Given("no serialisation strategy") {
+    val noSerializationGenerator = KotlinClassGenerator(GeneratorConfig())
+
+    When("the generator produces a data class") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string")),
+      )
+      val code = noSerializationGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("no @Serializable annotation is present") {
+        code shouldNotContain "@Serializable"
+        code shouldNotContain "import kotlinx.serialization"
+      }
+    }
+
+    When("the generator produces an enum class") {
+      val schema = Schema(enum = listOf("tyrannosaur", "triceratops"))
+      val code = noSerializationGenerator.generateFromSchema("DinosaurType", schema).toString()
+
+      Then("no @Serializable annotation is present") {
+        code shouldNotContain "@Serializable"
+        code shouldNotContain "import kotlinx.serialization"
+      }
+
+      Then("no @SerialName annotations are present") {
+        code shouldNotContain "@SerialName"
       }
     }
   }

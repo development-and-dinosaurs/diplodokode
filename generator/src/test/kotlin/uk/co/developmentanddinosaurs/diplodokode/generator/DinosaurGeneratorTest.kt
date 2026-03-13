@@ -363,6 +363,76 @@ class DinosaurGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("an OpenAPI spec with snake_case property names and serialisation enabled") {
+    val serialisationGenerator = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+    val openApiSpec = File("src/test/resources/snake-case-api.yaml")
+
+    When("the generator processes the spec") {
+      val code = serialisationGenerator.generateFromSpec(openApiSpec).find { it.name == "Tyrannosaur" }!!.toString()
+
+      Then("transformed properties have @SerialName with the original spec name") {
+        code shouldContain """@SerialName("arm_length")"""
+        code shouldContain """@SerialName("hunting_territory")"""
+        code shouldContain """@SerialName("favourite_prey")"""
+      }
+
+      Then("the Kotlin property names are camelCase") {
+        code shouldContain "val armLength: Double"
+        code shouldContain "val huntingTerritory: String"
+        code shouldContain "val favouritePrey: String?"
+      }
+    }
+  }
+
+  Given("an OpenAPI spec with snake_case property names and no serialisation strategy") {
+    val openApiSpec = File("src/test/resources/snake-case-api.yaml")
+
+    When("the generator processes the spec") {
+      val code = generator.generateFromSpec(openApiSpec).find { it.name == "Tyrannosaur" }!!.toString()
+
+      Then("no @SerialName annotations are emitted") {
+        code shouldNotContain "@SerialName"
+      }
+    }
+  }
+
+  Given("an OpenAPI spec with a nested sealed interface hierarchy") {
+    val openApiSpec = File("src/test/resources/nested-interface-api.yaml")
+    val generatedFiles = generator.generateFromSpec(openApiSpec)
+
+    Then("Dinosaur is a sealed interface with an abstract era property") {
+      val code = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+      code shouldContain "sealed interface Dinosaur"
+      code shouldContain "val era: String?"
+    }
+
+    Then("Sauropod is a sealed interface extending Dinosaur with an abstract neckLength property") {
+      val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
+      code shouldContain "sealed interface Sauropod : Dinosaur"
+      code shouldContain "val neckLength: Double?"
+    }
+
+    Then("Theropod is a sealed interface extending Dinosaur with an abstract bipedal property") {
+      val code = generatedFiles.find { it.name == "Theropod" }!!.toString()
+      code shouldContain "sealed interface Theropod : Dinosaur"
+      code shouldContain "val bipedal: Boolean?"
+    }
+
+    Then("Diplodocus overrides properties from both Sauropod and Dinosaur") {
+      val code = generatedFiles.find { it.name == "Diplodocus" }!!.toString()
+      code shouldContain "override val era: String"
+      code shouldContain "override val neckLength: Double"
+      code shouldContain "val bodyLength: Double"
+    }
+
+    Then("Tyrannosaur overrides properties from both Theropod and Dinosaur") {
+      val code = generatedFiles.find { it.name == "Tyrannosaur" }!!.toString()
+      code shouldContain "override val era: String"
+      code shouldContain "override val bipedal: Boolean"
+      code shouldContain "val armLength: Double"
+    }
+  }
+
   Given("an OpenAPI spec with an empty schema") {
     val openApiSpec = File("src/test/resources/empty-class-api.yaml")
 

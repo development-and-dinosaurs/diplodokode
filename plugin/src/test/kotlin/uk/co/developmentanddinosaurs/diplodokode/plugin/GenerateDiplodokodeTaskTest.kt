@@ -23,6 +23,7 @@ class GenerateDiplodokodeTaskTest : BehaviorSpec({
       task.typeMappingPreset.set("kmp")
       task.typeMappingFormatOverrides.set(emptyMap())
       task.typeMappingBaseOverrides.set(emptyMap())
+      task.serialisationLibrary.set("none")
     }.get()
 
     When("the task action runs") {

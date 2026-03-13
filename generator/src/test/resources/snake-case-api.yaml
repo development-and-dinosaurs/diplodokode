@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Snake Case API
+  version: "1.0"
+
+components:
+  schemas:
+    Tyrannosaur:
+      type: object
+      required:
+        - arm_length
+        - hunting_territory
+      properties:
+        arm_length:
+          type: number
+          description: The arm length of the tyrannosaur in metres
+        hunting_territory:
+          type: string
+          description: The hunting territory of the tyrannosaur
+        favourite_prey:
+          type: string
+          description: The tyrannosaur's favourite prey
+
+paths:
+  /tyrannosaurs:
+    get:
+      summary: Get a list of tyrannosaurs
+      responses:
+        '200':
+          description: A list of tyrannosaurs

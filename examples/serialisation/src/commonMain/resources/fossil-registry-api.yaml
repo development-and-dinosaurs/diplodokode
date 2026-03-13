@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: Fossil Registry API
+  version: 1.0.0
+  description: API for registering and retrieving fossil specimens
+
+components:
+  schemas:
+
+    Era:
+      type: string
+      enum:
+        - triassic
+        - jurassic
+        - cretaceous
+
+    Diet:
+      type: string
+      enum:
+        - carnivore
+        - herbivore
+        - omnivore
+
+    Fossil:
+      type: object
+      description: A fossil specimen record
+      required:
+        - id
+        - name
+        - era
+        - diet
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the fossil specimen
+        name:
+          type: string
+          description: Common name of the dinosaur species
+        era:
+          $ref: '#/components/schemas/Era'
+        diet:
+          $ref: '#/components/schemas/Diet'
+        discovery_year:
+          type: integer
+          description: Year the fossil was discovered
+        discovery_location:
+          type: string
+          description: Location where the fossil was found
+        completeness_percent:
+          type: number
+          description: Estimated completeness of the fossil as a percentage
+
+    Dinosaur:
+      description: A dinosaur that left a fossil record
+      oneOf:
+        - $ref: '#/components/schemas/Theropod'
+        - $ref: '#/components/schemas/Sauropod'
+      discriminator:
+        propertyName: classification
+
+    Theropod:
+      type: object
+      description: A bipedal carnivorous dinosaur
+      required:
+        - classification
+        - name
+      properties:
+        classification:
+          type: string
+          enum: [theropod]
+        name:
+          type: string
+          description: Species name
+
+    Sauropod:
+      type: object
+      description: A long-necked herbivorous dinosaur
+      required:
+        - classification
+        - name
+      properties:
+        classification:
+          type: string
+          enum: [sauropod]
+        name:
+          type: string
+          description: Species name
+
+paths:
+  /fossils:
+    get:
+      summary: List all fossil specimens
+      responses:
+        '200':
+          description: A list of fossil specimens
