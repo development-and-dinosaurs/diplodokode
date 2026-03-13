@@ -24,6 +24,8 @@ data class GeneratorConfig(
     val typeMappingStrategy: TypeMappingStrategy = KotlinMultiplatformTypeMappingStrategy(),
     val serialisationStrategy: SerializationStrategy? = null,
     val polymorphismStrategy: PolymorphismStrategy = PolymorphismStrategy.MODULE,
-    /** Package for the generated `DiplodokodeModule` file. Defaults to [packageName] when null. */
+    /** Package for the generated module file. Defaults to [packageName] when null. */
     val modulePackage: String? = null,
+    /** File and property name for the generated serializers module. Defaults to `DiplodokodeModule`. */
+    val moduleName: String = "DiplodokodeModule",
 )

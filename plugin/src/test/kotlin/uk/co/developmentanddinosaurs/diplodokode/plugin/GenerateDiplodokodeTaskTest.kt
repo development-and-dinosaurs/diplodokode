@@ -24,6 +24,7 @@ class GenerateDiplodokodeTaskTest : BehaviorSpec({
       task.typeMappingFormatOverrides.set(emptyMap())
       task.typeMappingBaseOverrides.set(emptyMap())
       task.serialisationLibrary.set("none")
+      task.moduleName.set("DiplodokodeModule")
     }.get()
 
     When("the task action runs") {

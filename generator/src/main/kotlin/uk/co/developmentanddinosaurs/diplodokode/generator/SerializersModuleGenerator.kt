@@ -33,12 +33,13 @@ internal class SerializersModuleGenerator(private val config: GeneratorConfig) {
         .endControlFlow()
         .build()
 
-    val property = PropertySpec.builder("diplodokodeModule", SERIALIZERS_MODULE_CLASS)
+    val propertyName = config.moduleName.replaceFirstChar { it.lowercaseChar() }
+    val property = PropertySpec.builder(propertyName, SERIALIZERS_MODULE_CLASS)
         .initializer(initializer)
         .build()
 
     val filePackage = config.modulePackage ?: config.packageName
-    return FileSpec.builder(filePackage, "DiplodokodeModule")
+    return FileSpec.builder(filePackage, config.moduleName)
         .addProperty(property)
         .build()
   }
