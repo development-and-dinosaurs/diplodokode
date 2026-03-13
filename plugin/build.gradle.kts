@@ -19,6 +19,7 @@ gradlePlugin {
       description = "Generate roarsome Kotlin models from an OpenAPI specification file with ease"
       implementationClass = "uk.co.developmentanddinosaurs.diplodokode.plugin.DiplodokodePlugin"
       tags.set(listOf("openapi-3.0", "openapi", "generator", "codegen", "kotlin"))
+      vcsUrl = "https://github.com/development-and-dinosaurs/diplodokode"
       compatibility {
         features {
           configurationCache = true
