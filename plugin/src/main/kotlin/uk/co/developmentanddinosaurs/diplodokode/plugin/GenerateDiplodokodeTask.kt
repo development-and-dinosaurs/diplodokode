@@ -9,6 +9,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -59,6 +60,13 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   @get:Input
   abstract val serialisationLibrary: Property<String>
 
+  @get:Input
+  @get:Optional
+  abstract val modulePackage: Property<String>
+
+  @get:Input
+  abstract val moduleName: Property<String>
+
   @TaskAction
   fun generate() {
     val config = GeneratorConfig(
@@ -67,6 +75,8 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
         packageName = packageName.get(),
         typeMappingStrategy = buildTypeMappingStrategy(),
         serialisationStrategy = buildSerialisationStrategy(),
+        modulePackage = if (modulePackage.isPresent) modulePackage.get() else null,
+        moduleName = moduleName.get(),
     )
     val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile

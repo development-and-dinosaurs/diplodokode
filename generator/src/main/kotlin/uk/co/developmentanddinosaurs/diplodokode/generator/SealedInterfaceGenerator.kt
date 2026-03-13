@@ -30,8 +30,10 @@ internal class SealedInterfaceGenerator(
     schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
     interfaceBuilder.addKdoc(variantKdoc(keyword))
 
-    val useSerialisedDiscriminator = discriminatorEnum != null &&
-        config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName) != null
+    val useSerialisedDiscriminator = discriminatorEnum != null && when (config.polymorphismStrategy) {
+      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName) != null
+      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+    }
     applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
 
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
@@ -42,8 +44,8 @@ internal class SealedInterfaceGenerator(
     }
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
-    if (useSerialisedDiscriminator) {
-      config.serialisationStrategy.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
+    if (useSerialisedDiscriminator && config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
+      config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
     return fileBuilder.addType(interfaceBuilder.build()).build()
   }
@@ -83,8 +85,10 @@ internal class SealedInterfaceGenerator(
   }
 
   private fun addSerialisedDiscriminator(interfaceBuilder: TypeSpec.Builder, discriminatorEnum: DiscriminatorEnum) {
-    config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
-        ?.let { interfaceBuilder.addAnnotation(it) }
+    if (config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
+      config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
+          ?.let { interfaceBuilder.addAnnotation(it) }
+    }
   }
 
   private fun addFallbackDiscriminator(interfaceBuilder: TypeSpec.Builder, schema: Schema) {

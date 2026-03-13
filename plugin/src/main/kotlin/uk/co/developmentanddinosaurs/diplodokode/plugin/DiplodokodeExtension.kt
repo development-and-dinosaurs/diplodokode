@@ -111,11 +111,23 @@ abstract class SerialisationExtension @Inject constructor(objects: ObjectFactory
 
   internal val library: Property<String> = objects.property(String::class.java).convention("none")
 
+  internal val modulePackage: Property<String> = objects.property(String::class.java)
+
+  internal val moduleName: Property<String> = objects.property(String::class.java).convention("DiplodokodeModule")
+
   fun useKotlinx() {
     library.set("kotlinx")
   }
 
   fun useNone() {
     library.set("none")
+  }
+
+  fun modulePackage(pkg: String) {
+    modulePackage.set(pkg)
+  }
+
+  fun moduleName(name: String) {
+    moduleName.set(name)
   }
 }

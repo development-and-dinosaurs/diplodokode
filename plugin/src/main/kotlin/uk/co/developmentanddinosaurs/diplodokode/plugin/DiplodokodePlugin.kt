@@ -21,6 +21,8 @@ class DiplodokodePlugin : Plugin<Project> {
       task.typeMappingFormatOverrides.set(extension.typeMappingConfig.formatOverrides)
       task.typeMappingBaseOverrides.set(extension.typeMappingConfig.baseOverrides)
       task.serialisationLibrary.set(extension.serialisationConfig.library)
+      task.modulePackage.set(extension.serialisationConfig.modulePackage)
+      task.moduleName.set(extension.serialisationConfig.moduleName)
     }
   }
 }

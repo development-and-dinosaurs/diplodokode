@@ -848,8 +848,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         code shouldContain "@Serializable"
       }
 
-      Then("the sealed interface is annotated with @JsonClassDiscriminator") {
-        code shouldContain """@JsonClassDiscriminator("type")"""
+      Then("no @JsonClassDiscriminator annotation is present") {
+        code shouldNotContain "JsonClassDiscriminator"
       }
 
       Then("no nested Type enum is generated") {

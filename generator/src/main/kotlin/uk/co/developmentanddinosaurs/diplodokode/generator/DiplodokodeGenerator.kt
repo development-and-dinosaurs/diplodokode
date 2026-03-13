@@ -4,16 +4,18 @@ import com.squareup.kotlinpoet.FileSpec
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.OpenApiSpecParser
 import java.io.File
 
-class DiplodokodeGenerator(config: GeneratorConfig = GeneratorConfig()) {
+class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
   private val parser = OpenApiSpecParser()
   private val resolver = SchemaResolver(config)
   private val classGenerator = KotlinClassGenerator(config)
+  private val moduleGenerator = SerializersModuleGenerator(config)
 
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
     val schemas = openApiSpec.components?.schemas ?: return emptyList()
     val (resolvedSchemas, implementedInterfaces, discriminatorEnums, discriminatorOverrides, interfacePropertyNames) = resolver.resolve(schemas)
-    return resolvedSchemas.map { (name, schema) ->
+
+    val classFiles = resolvedSchemas.map { (name, schema) ->
       classGenerator.generateFromSchema(
           name,
           schema,
@@ -23,5 +25,17 @@ class DiplodokodeGenerator(config: GeneratorConfig = GeneratorConfig()) {
           interfacePropertyNames[name] ?: emptySet(),
       )
     }
+
+    val moduleFile = if (config.serialisationStrategy != null && config.polymorphismStrategy == PolymorphismStrategy.MODULE) {
+      val interfaceVariants = mutableMapOf<String, MutableList<String>>()
+      implementedInterfaces.forEach { (variantName, interfaces) ->
+        interfaces.forEach { interfaceName ->
+          interfaceVariants.getOrPut(interfaceName) { mutableListOf() }.add(variantName)
+        }
+      }
+      moduleGenerator.generate(interfaceVariants)
+    } else null
+
+    return if (moduleFile != null) classFiles + moduleFile else classFiles
   }
 }
