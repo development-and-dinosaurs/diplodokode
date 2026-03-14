@@ -28,6 +28,7 @@ data class Schema(
   val additionalProperties: AdditionalProperties? = null,
   val allOf: List<Schema>? = null,
   val anyOf: List<Schema>? = null,
+  val default: DefaultValue? = null,
   val description: String? = null,
   val discriminator: Discriminator? = null,
   val enum: List<String>? = null,
@@ -75,6 +76,43 @@ internal object AdditionalPropertiesSerializer : KSerializer<AdditionalPropertie
         AdditionalProperties.Typed(Yaml.Default.decodeFromString(Schema.serializer(), yamlString))
       }
       else -> AdditionalProperties.Allowed
+    }
+  }
+}
+
+/**
+ * Represents the OpenAPI `default` field on a schema property, which can be a string, number,
+ * boolean, or null scalar value.
+ */
+@Serializable(with = DefaultValueSerializer::class)
+sealed class DefaultValue {
+  data class Str(val value: String) : DefaultValue()
+  data class Num(val value: Number) : DefaultValue()
+  data class Bool(val value: Boolean) : DefaultValue()
+  data object Null : DefaultValue()
+}
+
+internal object DefaultValueSerializer : KSerializer<DefaultValue> {
+  override val descriptor: SerialDescriptor =
+      PrimitiveSerialDescriptor("DefaultValue", PrimitiveKind.STRING)
+
+  @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+  override fun serialize(encoder: Encoder, value: DefaultValue) {
+    when (value) {
+      is DefaultValue.Str -> encoder.encodeString(value.value)
+      is DefaultValue.Num -> encoder.encodeDouble(value.value.toDouble())
+      is DefaultValue.Bool -> encoder.encodeBoolean(value.value)
+      is DefaultValue.Null -> encoder.encodeNull()
+    }
+  }
+
+  override fun deserialize(decoder: Decoder): DefaultValue {
+    val raw = decoder.decodeSerializableValue(YamlDynamicSerializer)
+    return when (raw) {
+      is Boolean -> DefaultValue.Bool(raw)
+      is Number -> DefaultValue.Num(raw)
+      is String -> DefaultValue.Str(raw)
+      else -> DefaultValue.Null
     }
   }
 }

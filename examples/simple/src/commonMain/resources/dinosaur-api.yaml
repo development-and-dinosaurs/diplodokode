@@ -21,9 +21,11 @@ components:
         weight:
           type: number
           description: The weight of the dinosaur in kilograms
+          default: 0.0
         isCarnivore:
           type: boolean
           description: Whether the dinosaur is carnivore
+          default: false
         traits:
           type: object
           description: Named traits for this dinosaur (e.g. "diet" to "carnivore")

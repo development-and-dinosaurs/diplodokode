@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class KotlinClassGeneratorTest : BehaviorSpec({
@@ -950,6 +951,139 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       Then("the property type is Map<String, RefType>") {
         code shouldContain "val pack: Map<String, Tyrannosaur>?"
       }
+    }
+  }
+
+  Given("a schema with default values on properties") {
+    When("a required string property has a default") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string", default = DefaultValue.Str("Unknown"))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has a string default") {
+        code shouldContain """name: String = "Unknown""""
+      }
+    }
+
+    When("an optional integer property has a default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("age" to Schema(type = "integer", default = DefaultValue.Num(0))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has an int default") {
+        code shouldContain "age: Int? = 0"
+      }
+    }
+
+    When("an optional number property has a default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("weight" to Schema(type = "number", default = DefaultValue.Num(100.0))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has a double default") {
+        code shouldContain "weight: Double? = 100.0"
+      }
+    }
+
+    When("an optional boolean property has a default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("active" to Schema(type = "boolean", default = DefaultValue.Bool(true))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has a boolean default") {
+        code shouldContain "active: Boolean? = true"
+      }
+    }
+
+    When("an optional int64 property has a numeric default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("count" to Schema(type = "integer", format = "int64", default = DefaultValue.Num(0))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has a Long default with L suffix") {
+        code shouldContain "count: Long? = 0L"
+      }
+    }
+
+    When("an optional float property has a numeric default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("speed" to Schema(type = "number", format = "float", default = DefaultValue.Num(1.5))),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter has a Float default with f suffix") {
+        code shouldContain "speed: Float? = 1.5f"
+      }
+    }
+
+    When("an inline enum property has a string default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf(
+          "classification" to Schema(
+            type = "string",
+            enum = listOf("herbivore", "carnivore", "omnivore"),
+            default = DefaultValue.Str("herbivore"),
+          )
+        ),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter defaults to the matching enum constant") {
+        code shouldContain "classification: Classification? = Classification.HERBIVORE"
+      }
+    }
+
+    When("a property has a null default") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf("name" to Schema(type = "string", default = DefaultValue.Null)),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the constructor parameter defaults to null") {
+        code shouldContain "name: String? = null"
+      }
+    }
+  }
+
+  Given("a spec file with default values") {
+    val spec = java.io.File("src/test/resources/default-api.yaml")
+    val generatedFiles = DiplodokodeGenerator(GeneratorConfig()).generateFromSpec(spec)
+    val code = generatedFiles.find { it.name == "Dinosaur" }!!.toString()
+
+    Then("string default is emitted correctly") {
+      code shouldContain """name: String = "Unknown""""
+    }
+    Then("integer default is emitted correctly") {
+      code shouldContain "age: Int? = 0"
+    }
+    Then("number default is emitted correctly") {
+      code shouldContain "weight: Double? = 100.0"
+    }
+    Then("boolean default is emitted correctly") {
+      code shouldContain "active: Boolean? = true"
+    }
+    Then("enum default is emitted as enum constant reference") {
+      code shouldContain "classification: Classification? = Classification.HERBIVORE"
+    }
+    Then("int64 default is emitted with L suffix") {
+      code shouldContain "count: Long? = 0L"
+    }
+    Then("float default is emitted with f suffix") {
+      code shouldContain "speed: Float? = 1.5f"
     }
   }
 

@@ -14,6 +14,7 @@ class Demo {
     println()
     
     val dinosaurs = listOf(
+      // weight and isCarnivore have schema defaults (0.0 and false) — override them here
       Dinosaur(
         name = "T-Rex",
         species = "Tyrannosaurus rex",
@@ -28,16 +29,14 @@ class Demo {
         species = "Triceratops horridus",
         age = 25,
         weight = 12000.0,
-        isCarnivore = false,
         traits = mapOf("diet" to "herbivore", "defence" to "horns"),
         metadata = null,
       ),
+      // weight and isCarnivore omitted — schema defaults (0.0, false) apply
       Dinosaur(
         name = "Brachio",
         species = "Brachiosaurus altithorax",
         age = 40,
-        weight = 56000.0,
-        isCarnivore = false,
         traits = null,
         metadata = null,
       )

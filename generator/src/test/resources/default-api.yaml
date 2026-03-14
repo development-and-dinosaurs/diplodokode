@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Default API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      properties:
+        name:
+          type: string
+          default: "Unknown"
+        age:
+          type: integer
+          default: 0
+        weight:
+          type: number
+          default: 100.0
+        active:
+          type: boolean
+          default: true
+        classification:
+          type: string
+          enum: [herbivore, carnivore, omnivore]
+          default: herbivore
+        count:
+          type: integer
+          format: int64
+          default: 0
+        speed:
+          type: number
+          format: float
+          default: 1.5
+      required:
+        - name
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a dinosaur
+      responses:
+        '200':
+          description: A dinosaur

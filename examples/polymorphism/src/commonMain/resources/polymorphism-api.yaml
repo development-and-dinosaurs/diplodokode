@@ -305,6 +305,10 @@ components:
         recordedAt:
           type: string
           description: When this entry was recorded (ISO 8601)
+        confidence:
+          type: string
+          description: Confidence level of this record
+          default: medium
         annotations:
           type: object
           description: Arbitrary string annotations attached to this audit record (e.g. "confidence" to "high")
