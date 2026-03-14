@@ -67,13 +67,12 @@ internal object AdditionalPropertiesSerializer : KSerializer<AdditionalPropertie
   }
 
   override fun deserialize(decoder: Decoder): AdditionalProperties {
-    val raw = decoder.decodeSerializableValue(YamlDynamicSerializer)
-    return when (raw) {
+    return when (val raw = decoder.decodeSerializableValue(YamlDynamicSerializer)) {
       true -> AdditionalProperties.Allowed
       false -> AdditionalProperties.Forbidden
       is Map<*, *> -> {
-        val yamlString = Yaml.Default.encodeToString(YamlDynamicSerializer, raw)
-        AdditionalProperties.Typed(Yaml.Default.decodeFromString(Schema.serializer(), yamlString))
+        val yamlString = Yaml.encodeToString(YamlDynamicSerializer, raw)
+        AdditionalProperties.Typed(Yaml.decodeFromString(Schema.serializer(), yamlString))
       }
       else -> AdditionalProperties.Allowed
     }

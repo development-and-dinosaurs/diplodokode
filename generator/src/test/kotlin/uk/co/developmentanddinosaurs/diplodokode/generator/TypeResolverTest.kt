@@ -202,7 +202,6 @@ class TypeResolverTest : BehaviorSpec({
 
     Then("returns true for List<Uuid>") {
       val schema = Schema(type = "array", items = Schema(type = "string", format = "uuid"))
-      val listType = resolver.resolveItemType(Schema(type = "array", items = Schema(type = "string", format = "uuid")))
       val parameterized = resolver.resolveType("ids", schema, isNullable = false, enumClassNames = emptyMap())
       resolver.containsKotlinUuid(parameterized) shouldBe true
     }
