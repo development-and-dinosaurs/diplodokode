@@ -189,7 +189,7 @@ internal class DataClassGenerator(
   private fun formatDefault(default: DefaultValue, kotlinType: TypeName, enumClassName: ClassName?): CodeBlock? {
     val baseType = kotlinType.copy(nullable = false)
     return when (default) {
-      is DefaultValue.Null -> CodeBlock.of("null")
+      is DefaultValue.Null -> if (kotlinType.isNullable) CodeBlock.of("null") else null
       is DefaultValue.Bool -> CodeBlock.of("%L", default.value)
       is DefaultValue.Str -> when {
         enumClassName != null -> CodeBlock.of(

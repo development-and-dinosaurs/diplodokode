@@ -1046,15 +1046,29 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
     }
 
-    When("a property has a null default") {
+    When("an optional property has a null default") {
       val schema = Schema(
         type = "object",
         properties = mapOf("name" to Schema(type = "string", default = DefaultValue.Null)),
       )
       val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
-      Then("the constructor parameter defaults to null") {
+      Then("the constructor parameter defaults to null on the nullable type") {
         code shouldContain "name: String? = null"
+      }
+    }
+
+    When("a required (non-nullable) property has a null default") {
+      val schema = Schema(
+        type = "object",
+        required = listOf("name"),
+        properties = mapOf("name" to Schema(type = "string", default = DefaultValue.Null)),
+      )
+      val code = generator.generateFromSchema("Dinosaur", schema).toString()
+
+      Then("the null default is suppressed to avoid invalid non-nullable = null") {
+        code shouldNotContain "= null"
+        code shouldContain "name: String"
       }
     }
   }
