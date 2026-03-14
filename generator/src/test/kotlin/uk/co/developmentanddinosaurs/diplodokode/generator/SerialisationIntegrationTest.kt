@@ -203,18 +203,35 @@ class SerialisationIntegrationTest : BehaviorSpec({
         }
     }
 
-    Given("an OpenAPI spec with Any-typed properties and serialisation enabled") {
+    Given("an OpenAPI spec with Any-typed and Map-typed properties and serialisation enabled") {
         val spec = File("src/test/resources/contextual-api.yaml")
         val generatedFiles = generator.generateFromSpec(spec)
         val code = generatedFiles.find { it.name == "Triceratops" }!!.toString()
 
-        Then("a type: object property is annotated with @Contextual") {
-            code shouldContain "@Contextual"
+        Then("a bare type: object property is annotated with @Contextual") {
             code shouldContain "val metadata: Any?"
         }
 
         Then("an array-without-items property is annotated with @Contextual") {
             code shouldContain "val rawList: List<Any>?"
+        }
+
+        Then("additionalProperties: true generates Map<String, Any> annotated with @Contextual") {
+            code shouldContain "val extensions: Map<String, Any>?"
+        }
+
+        Then("additionalProperties typed as string generates Map<String, String> without @Contextual") {
+            code shouldContain "val attributes: Map<String, String>?"
+        }
+
+        Then("additionalProperties typed as integer generates Map<String, Int> without @Contextual") {
+            code shouldContain "val scores: Map<String, Int>?"
+        }
+
+        Then("@Contextual appears exactly on the Any-containing properties") {
+            // attributes (Map<String,String>) and scores (Map<String,Int>) must NOT be preceded by @Contextual
+            code shouldNotContain "@Contextual\n  val attributes"
+            code shouldNotContain "@Contextual\n  val scores"
         }
     }
 })

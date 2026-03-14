@@ -1,7 +1,15 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator.openapi
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import net.mamoe.yamlkt.Yaml
+import net.mamoe.yamlkt.YamlDynamicSerializer
 
 
 @Serializable
@@ -17,6 +25,7 @@ data class Components(
 @Serializable
 data class Schema(
   @SerialName($$"$ref") val ref: String? = null,
+  val additionalProperties: AdditionalProperties? = null,
   val allOf: List<Schema>? = null,
   val anyOf: List<Schema>? = null,
   val description: String? = null,
@@ -30,6 +39,45 @@ data class Schema(
   val required: List<String>? = null,
   val type: String? = null,
 )
+
+/**
+ * Represents the OpenAPI `additionalProperties` field, which can be:
+ * - `true` — any additional properties are allowed ([Allowed])
+ * - `false` — no additional properties are allowed ([Forbidden])
+ * - a schema object — additional properties must conform to the given schema ([Typed])
+ */
+@Serializable(with = AdditionalPropertiesSerializer::class)
+sealed class AdditionalProperties {
+  data object Allowed : AdditionalProperties()
+  data object Forbidden : AdditionalProperties()
+  data class Typed(val schema: Schema) : AdditionalProperties()
+}
+
+internal object AdditionalPropertiesSerializer : KSerializer<AdditionalProperties> {
+  override val descriptor: SerialDescriptor =
+      PrimitiveSerialDescriptor("AdditionalProperties", PrimitiveKind.STRING)
+
+  override fun serialize(encoder: Encoder, value: AdditionalProperties) {
+    when (value) {
+      is AdditionalProperties.Allowed -> encoder.encodeBoolean(true)
+      is AdditionalProperties.Forbidden -> encoder.encodeBoolean(false)
+      is AdditionalProperties.Typed -> encoder.encodeSerializableValue(Schema.serializer(), value.schema)
+    }
+  }
+
+  override fun deserialize(decoder: Decoder): AdditionalProperties {
+    val raw = decoder.decodeSerializableValue(YamlDynamicSerializer)
+    return when (raw) {
+      true -> AdditionalProperties.Allowed
+      false -> AdditionalProperties.Forbidden
+      is Map<*, *> -> {
+        val yamlString = Yaml.Default.encodeToString(YamlDynamicSerializer, raw)
+        AdditionalProperties.Typed(Yaml.Default.decodeFromString(Schema.serializer(), yamlString))
+      }
+      else -> AdditionalProperties.Allowed
+    }
+  }
+}
 
 @Serializable
 data class Discriminator(

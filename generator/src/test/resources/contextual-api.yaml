@@ -14,6 +14,17 @@ components:
           type: object
         rawList:
           type: array
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+        scores:
+          type: object
+          additionalProperties:
+            type: integer
+        extensions:
+          type: object
+          additionalProperties: true
       required:
         - name
 

@@ -3,6 +3,7 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class KotlinClassGeneratorTest : BehaviorSpec({
@@ -884,6 +885,70 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("other properties are generated normally") {
         code shouldContain "val armLength: Double"
+      }
+    }
+  }
+
+  Given("a schema with additionalProperties") {
+    When("additionalProperties is true") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf(
+          "name" to Schema(type = "string"),
+          "extensions" to Schema(type = "object", additionalProperties = AdditionalProperties.Allowed),
+        ),
+        required = listOf("name"),
+      )
+      val code = generator.generateFromSchema("Triceratops", schema).toString()
+
+      Then("the property type is Map<String, Any>") {
+        code shouldContain "val extensions: Map<String, Any>?"
+      }
+    }
+
+    When("additionalProperties is a typed string schema") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf(
+          "name" to Schema(type = "string"),
+          "attributes" to Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(type = "string"))),
+        ),
+        required = listOf("name"),
+      )
+      val code = generator.generateFromSchema("Triceratops", schema).toString()
+
+      Then("the property type is Map<String, String>") {
+        code shouldContain "val attributes: Map<String, String>?"
+      }
+    }
+
+    When("additionalProperties is a typed integer schema") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf(
+          "name" to Schema(type = "string"),
+          "scores" to Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(type = "integer"))),
+        ),
+        required = listOf("name"),
+      )
+      val code = generator.generateFromSchema("Triceratops", schema).toString()
+
+      Then("the property type is Map<String, Int>") {
+        code shouldContain "val scores: Map<String, Int>?"
+      }
+    }
+
+    When("additionalProperties is a typed \$ref schema") {
+      val schema = Schema(
+        type = "object",
+        properties = mapOf(
+          "pack" to Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(ref = "#/components/schemas/Tyrannosaur"))),
+        ),
+      )
+      val code = generator.generateFromSchema("Triceratops", schema).toString()
+
+      Then("the property type is Map<String, RefType>") {
+        code shouldContain "val pack: Map<String, Tyrannosaur>?"
       }
     }
   }
