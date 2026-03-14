@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Empty Variant API
+  version: "1.0"
+
+components:
+  schemas:
+
+    # oneOf where one variant has no properties of its own
+    Dinosaur:
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/UnknownDinosaur'
+      discriminator:
+        propertyName: type
+
+    Tyrannosaur:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          enum: [tyrannosaur]
+        name:
+          type: string
+
+    # Only the discriminator property — no additional state
+    UnknownDinosaur:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [unknown]
+
+paths:
+  /dinosaurs:
+    get:
+      responses:
+        '200':
+          description: A dinosaur

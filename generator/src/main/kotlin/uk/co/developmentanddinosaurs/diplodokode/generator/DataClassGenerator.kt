@@ -30,7 +30,10 @@ internal class DataClassGenerator(
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    val serialiseDiscriminator = config.serialisationStrategy != null && discriminatorOverride != null
+    val serialiseDiscriminator = discriminatorOverride != null && when (config.polymorphismStrategy) {
+      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorOverride.propertyName) != null
+      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+    }
     val required = schema.required?.toSet() ?: emptySet()
 
     val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)
@@ -46,6 +49,10 @@ internal class DataClassGenerator(
         ?.map { (propName, propValue) ->
           buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
+
+    if (constructorParams.isEmpty()) {
+      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverride)
+    }
 
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
     if (allTypes.any { typeResolver.containsKotlinUuid(it) }) {
@@ -75,6 +82,29 @@ internal class DataClassGenerator(
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
+  }
+
+  private fun generateDataObject(
+      className: String,
+      fileBuilder: FileSpec.Builder,
+      implementedInterfaces: List<String>,
+      serialiseDiscriminator: Boolean,
+      discriminatorOverride: DiscriminatorOverride?,
+  ): FileSpec {
+    val objectBuilder = TypeSpec.objectBuilder(className)
+        .addModifiers(KModifier.DATA)
+        .also { builder ->
+          config.serialisationStrategy?.let { strategy ->
+            builder.addAnnotation(strategy.classAnnotation)
+            if (serialiseDiscriminator) {
+              strategy.variantAnnotation(discriminatorOverride!!.rawValue)?.let { builder.addAnnotation(it) }
+            }
+          }
+        }
+    implementedInterfaces.forEach { iface ->
+      objectBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+    }
+    return fileBuilder.addType(objectBuilder.build()).build()
   }
 
   private fun buildInlineEnumClasses(
