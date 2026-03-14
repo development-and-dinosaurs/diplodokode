@@ -30,7 +30,10 @@ internal class DataClassGenerator(
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    val serialiseDiscriminator = config.serialisationStrategy != null && discriminatorOverride != null
+    val serialiseDiscriminator = discriminatorOverride != null && when (config.polymorphismStrategy) {
+      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorOverride.propertyName) != null
+      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+    }
     val required = schema.required?.toSet() ?: emptySet()
 
     val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)

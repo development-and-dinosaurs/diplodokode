@@ -1130,7 +1130,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
           discriminatorOverride = discriminatorOverride,
       ).toString()
 
-      Then("a data object is generated because the discriminator is the only property") {
+      Then("a data object is generated") {
         code shouldContain "data object UnknownDinosaur"
         code shouldNotContain "data class UnknownDinosaur"
       }
@@ -1142,6 +1142,45 @@ class KotlinClassGeneratorTest : BehaviorSpec({
 
       Then("the data object implements the sealed interface") {
         code shouldContain "data object UnknownDinosaur : Dinosaur"
+      }
+    }
+  }
+
+  Given("a schema whose only property is the discriminator, with ANNOTATION strategy and no discriminatorAnnotation") {
+    val annotationGenerator = KotlinClassGenerator(
+        GeneratorConfig(
+            serialisationStrategy = KotlinxSerialisationStrategy,
+            polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
+        )
+    )
+    val schema = Schema(
+      type = "object",
+      required = listOf("type"),
+      properties = mapOf("type" to Schema(type = "string", enum = listOf("unknown"))),
+    )
+    val discriminatorOverride = DiscriminatorOverride(
+        interfaceName = "Dinosaur", propertyName = "type", constant = "UNKNOWN", rawValue = "unknown"
+    )
+
+    When("the generator produces the variant") {
+      val code = annotationGenerator.generateFromSchema(
+          "UnknownDinosaur", schema,
+          implementedInterfaces = listOf("Dinosaur"),
+          discriminatorOverride = discriminatorOverride,
+      ).toString()
+
+      Then("a data class is generated") {
+        code shouldContain "data class UnknownDinosaur"
+        code shouldNotContain "data object UnknownDinosaur"
+      }
+
+      Then("the data class includes the override type property") {
+        code shouldContain "override val type: Dinosaur.Type"
+      }
+
+      Then("the data class implements the sealed interface") {
+        code shouldContain "data class UnknownDinosaur"
+        code shouldContain ": Dinosaur"
       }
     }
   }
