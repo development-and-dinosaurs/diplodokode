@@ -2,12 +2,16 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.asTypeName
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 internal class DataClassGenerator(
@@ -106,7 +110,10 @@ internal class DataClassGenerator(
     }
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
     val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-    return ParameterSpec.builder(propertyName, kotlinType).build()
+    val paramBuilder = ParameterSpec.builder(propertyName, kotlinType)
+    propValue.default?.let { formatDefault(it, kotlinType, enumClassNames[propName]) }
+        ?.let { paramBuilder.defaultValue(it) }
+    return paramBuilder.build()
   }
 
   private fun buildProperty(
@@ -147,11 +154,13 @@ internal class DataClassGenerator(
   ): PropertySpec {
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
     val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-    return PropertySpec.builder(propertyName, kotlinType)
+    val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
-        .applySerialName(propName, propertyName)
-        .build()
+    if (typeResolver.containsAny(kotlinType)) {
+      config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
+    }
+    return builder.applySerialName(propName, propertyName).build()
   }
 
   private fun buildPlainProperty(
@@ -171,7 +180,31 @@ internal class DataClassGenerator(
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
     }
+    if (typeResolver.containsAny(kotlinType)) {
+      config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
+    }
     return builder.applySerialName(propName, propertyName).build()
+  }
+
+  private fun formatDefault(default: DefaultValue, kotlinType: TypeName, enumClassName: ClassName?): CodeBlock? {
+    val baseType = kotlinType.copy(nullable = false)
+    return when (default) {
+      is DefaultValue.Null -> if (kotlinType.isNullable) CodeBlock.of("null") else null
+      is DefaultValue.Bool -> CodeBlock.of("%L", default.value)
+      is DefaultValue.Str -> when {
+        enumClassName != null -> CodeBlock.of(
+            "%T.%L", enumClassName, config.namingStrategy.enumConstant(default.value)
+        )
+        else -> CodeBlock.of("%S", default.value)
+      }
+      is DefaultValue.Num -> when (baseType) {
+        Long::class.asTypeName() -> CodeBlock.of("%LL", default.value.toLong())
+        Float::class.asTypeName() -> CodeBlock.of("%Lf", default.value.toFloat())
+        Int::class.asTypeName() -> CodeBlock.of("%L", default.value.toInt())
+        Double::class.asTypeName() -> CodeBlock.of("%L", default.value.toDouble())
+        else -> null
+      }
+    }
   }
 
   private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {

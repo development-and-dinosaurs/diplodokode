@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import com.squareup.kotlinpoet.ParameterizedTypeName
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class TypeResolverTest : BehaviorSpec({
@@ -132,6 +133,62 @@ class TypeResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a property with additionalProperties") {
+    When("additionalProperties is Allowed (true)") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Allowed)
+      val type = resolver.resolveType("extensions", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to Map<String, Any>") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.Any>"
+      }
+    }
+
+    When("additionalProperties is Forbidden (false)") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Forbidden)
+      val type = resolver.resolveType("closed", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to Map<String, Any>") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.Any>"
+      }
+    }
+
+    When("additionalProperties is Typed with a primitive schema") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(type = "string")))
+      val type = resolver.resolveType("attributes", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to Map<String, String>") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.String>"
+      }
+    }
+
+    When("additionalProperties is Typed with an integer schema") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(type = "integer")))
+      val type = resolver.resolveType("scores", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to Map<String, Int>") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.Int>"
+      }
+    }
+
+    When("additionalProperties is Typed with a \$ref schema") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(ref = "#/components/schemas/Tyrannosaur")))
+      val type = resolver.resolveType("pack", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to Map<String, RefType>") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, uk.co.developmentanddinosaurs.diplodokode.generated.Tyrannosaur>"
+      }
+    }
+
+    When("additionalProperties is set and the property is nullable") {
+      val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Typed(Schema(type = "string")))
+      val type = resolver.resolveType("attributes", schema, isNullable = true, enumClassNames = emptyMap())
+
+      Then("the map type itself is nullable") {
+        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.String>?"
+      }
+    }
+  }
+
   Given("containsKotlinUuid") {
     Then("returns true for a direct Uuid type") {
       val uuidType = resolver.mapTypeToKotlin("string", "uuid")
@@ -145,7 +202,6 @@ class TypeResolverTest : BehaviorSpec({
 
     Then("returns true for List<Uuid>") {
       val schema = Schema(type = "array", items = Schema(type = "string", format = "uuid"))
-      val listType = resolver.resolveItemType(Schema(type = "array", items = Schema(type = "string", format = "uuid")))
       val parameterized = resolver.resolveType("ids", schema, isNullable = false, enumClassNames = emptyMap())
       resolver.containsKotlinUuid(parameterized) shouldBe true
     }

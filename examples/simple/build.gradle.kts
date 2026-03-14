@@ -8,6 +8,11 @@ kotlin {
   js(IR) {
     browser()
   }
+  sourceSets {
+    commonMain {
+      kotlin.srcDir("build/generated/kotlin")
+    }
+  }
 }
 
 // Configure the Diplodokode plugin

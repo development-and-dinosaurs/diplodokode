@@ -55,6 +55,15 @@ interface SerializationStrategy {
      * returns `@OptIn(ExperimentalSerializationApi::class)`.
      */
     fun discriminatorFileAnnotation(): AnnotationSpec? = null
+
+    /**
+     * Returns an [AnnotationSpec] to place on a property whose Kotlin type is (or contains) [Any],
+     * or `null` if the library does not require explicit annotation for open types.
+     *
+     * For example, in kotlinx.serialization this should return `@Contextual` so that consumers
+     * can register a contextual serializer for [Any] in their [SerializersModule].
+     */
+    fun anyPropertyAnnotation(): AnnotationSpec? = null
 }
 
 private const val KOTLINX_SERIALIZATION = "kotlinx.serialization"
@@ -85,4 +94,7 @@ data object KotlinxSerialisationStrategy : SerializationStrategy {
 
     override fun variantAnnotation(rawValue: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", rawValue).build()
+
+    override fun anyPropertyAnnotation(): AnnotationSpec =
+        AnnotationSpec.builder(ClassName(KOTLINX_SERIALIZATION, "Contextual")).build()
 }
