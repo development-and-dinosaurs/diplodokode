@@ -3,8 +3,6 @@ package uk.co.developmentanddinosaurs.diplodokode.generator.openapi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
@@ -55,8 +53,7 @@ sealed class AdditionalProperties {
 }
 
 internal object AdditionalPropertiesSerializer : KSerializer<AdditionalProperties> {
-  override val descriptor: SerialDescriptor =
-      PrimitiveSerialDescriptor("AdditionalProperties", PrimitiveKind.STRING)
+  override val descriptor: SerialDescriptor = YamlDynamicSerializer.descriptor
 
   override fun serialize(encoder: Encoder, value: AdditionalProperties) {
     when (value) {
@@ -92,8 +89,7 @@ sealed class DefaultValue {
 }
 
 internal object DefaultValueSerializer : KSerializer<DefaultValue> {
-  override val descriptor: SerialDescriptor =
-      PrimitiveSerialDescriptor("DefaultValue", PrimitiveKind.STRING)
+  override val descriptor: SerialDescriptor = YamlDynamicSerializer.descriptor
 
   @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
   override fun serialize(encoder: Encoder, value: DefaultValue) {
