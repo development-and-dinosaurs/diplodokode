@@ -24,6 +24,15 @@ components:
         isCarnivore:
           type: boolean
           description: Whether the dinosaur is carnivore
+        traits:
+          type: object
+          description: Named traits for this dinosaur (e.g. "diet" to "carnivore")
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          description: Open-ended metadata — any additional data associated with this dinosaur
+          additionalProperties: true
       required:
         - name
         - species

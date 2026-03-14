@@ -133,10 +133,14 @@ class Demo {
       heightMetres = 6.1,
       weightKg = 8400.0,
       topSpeedKph = 45.0,
+      annotations = mapOf("confidence" to "high", "site" to "Montana"),
     )
 
     println("  Recorded by: ${profile.recordedBy} at ${profile.recordedAt}")
     println("  Height: ${profile.heightMetres}m, Weight: ${profile.weightKg}kg, Top speed: ${profile.topSpeedKph}kph")
+    if (!profile.annotations.isNullOrEmpty()) {
+      println("  Annotations: ${profile.annotations.entries.joinToString { "${it.key}=${it.value}" }}")
+    }
     println()
   }
 }

@@ -305,6 +305,11 @@ components:
         recordedAt:
           type: string
           description: When this entry was recorded (ISO 8601)
+        annotations:
+          type: object
+          description: Arbitrary string annotations attached to this audit record (e.g. "confidence" to "high")
+          additionalProperties:
+            type: string
 
     DinosaurMeasurements:
       type: object
