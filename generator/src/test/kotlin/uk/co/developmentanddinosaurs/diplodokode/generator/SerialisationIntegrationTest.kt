@@ -202,4 +202,19 @@ class SerialisationIntegrationTest : BehaviorSpec({
             }
         }
     }
+
+    Given("an OpenAPI spec with Any-typed properties and serialisation enabled") {
+        val spec = File("src/test/resources/contextual-api.yaml")
+        val generatedFiles = generator.generateFromSpec(spec)
+        val code = generatedFiles.find { it.name == "Triceratops" }!!.toString()
+
+        Then("a type: object property is annotated with @Contextual") {
+            code shouldContain "@Contextual"
+            code shouldContain "val metadata: Any?"
+        }
+
+        Then("an array-without-items property is annotated with @Contextual") {
+            code shouldContain "val rawList: List<Any>?"
+        }
+    }
 })

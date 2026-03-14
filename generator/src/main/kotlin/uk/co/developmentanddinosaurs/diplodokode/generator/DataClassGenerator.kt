@@ -147,11 +147,13 @@ internal class DataClassGenerator(
   ): PropertySpec {
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
     val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
-    return PropertySpec.builder(propertyName, kotlinType)
+    val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
-        .applySerialName(propName, propertyName)
-        .build()
+    if (typeResolver.containsAny(kotlinType)) {
+      config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
+    }
+    return builder.applySerialName(propName, propertyName).build()
   }
 
   private fun buildPlainProperty(
@@ -170,6 +172,9 @@ internal class DataClassGenerator(
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+    }
+    if (typeResolver.containsAny(kotlinType)) {
+      config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
     }
     return builder.applySerialName(propName, propertyName).build()
   }

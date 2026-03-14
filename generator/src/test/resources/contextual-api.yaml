@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Contextual API
+  version: "1.0"
+
+components:
+  schemas:
+    Triceratops:
+      type: object
+      properties:
+        name:
+          type: string
+        metadata:
+          type: object
+        rawList:
+          type: array
+      required:
+        - name
+
+paths:
+  /triceratops:
+    get:
+      summary: Get a triceratops
+      responses:
+        '200':
+          description: A triceratops

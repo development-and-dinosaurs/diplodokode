@@ -48,4 +48,11 @@ internal class TypeResolver(private val config: GeneratorConfig) {
         type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
         else -> false
       }
+
+  fun containsAny(type: TypeName): Boolean =
+      when {
+        type.copy(nullable = false) == Any::class.asTypeName() -> true
+        type is ParameterizedTypeName -> type.typeArguments.any { containsAny(it) }
+        else -> false
+      }
 }
