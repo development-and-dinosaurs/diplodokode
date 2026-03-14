@@ -91,20 +91,6 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
   }
 
-  Given("a schema with no properties") {
-    val schema = Schema(type = "object")
-
-    When("the generator produces a data class") {
-      val code = generator.generateFromSchema("Empty", schema).toString()
-
-      Then("it should generate an empty data class") {
-        code shouldContain "data class Empty"
-        code shouldNotContain "val "
-        code shouldNotContain "constructor"
-      }
-    }
-  }
-
   Given("a schema with a required nullable property") {
     val schema = Schema(
       type = "object",
@@ -335,11 +321,11 @@ class KotlinClassGeneratorTest : BehaviorSpec({
   Given("a schema with a lowercase class name") {
     val schema = Schema(type = "object")
 
-    When("the generator produces a data class") {
+    When("the generator produces a class") {
       val code = generator.generateFromSchema("dinosaur", schema).toString()
 
       Then("it should capitalise the class name") {
-        code shouldContain "data class Dinosaur"
+        code shouldContain "data object Dinosaur"
       }
     }
   }
@@ -1098,6 +1084,91 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     }
     Then("float default is emitted with f suffix") {
       code shouldContain "speed: Float? = 1.5f"
+    }
+  }
+
+  Given("a schema with no properties") {
+    When("the schema has no properties at all") {
+      val schema = Schema(type = "object")
+      val code = generator.generateFromSchema("UnknownDinosaur", schema).toString()
+
+      Then("a data object is generated instead of a data class") {
+        code shouldContain "data object UnknownDinosaur"
+        code shouldNotContain "data class UnknownDinosaur"
+      }
+    }
+
+    When("the schema implements a sealed interface") {
+      val schema = Schema(type = "object")
+      val code = generator.generateFromSchema(
+          "UnknownDinosaur", schema, implementedInterfaces = listOf("Dinosaur")
+      ).toString()
+
+      Then("the data object implements the interface") {
+        code shouldContain "data object UnknownDinosaur : Dinosaur"
+      }
+    }
+  }
+
+  Given("a schema whose only property is the discriminator, with serialisation enabled") {
+    val serialisationGenerator = KotlinClassGenerator(
+        GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy)
+    )
+    val schema = Schema(
+      type = "object",
+      required = listOf("type"),
+      properties = mapOf("type" to Schema(type = "string", enum = listOf("unknown"))),
+    )
+    val discriminatorOverride = DiscriminatorOverride(
+        interfaceName = "Dinosaur", propertyName = "type", constant = "UNKNOWN", rawValue = "unknown"
+    )
+
+    When("the generator produces the variant") {
+      val code = serialisationGenerator.generateFromSchema(
+          "UnknownDinosaur", schema,
+          implementedInterfaces = listOf("Dinosaur"),
+          discriminatorOverride = discriminatorOverride,
+      ).toString()
+
+      Then("a data object is generated because the discriminator is the only property") {
+        code shouldContain "data object UnknownDinosaur"
+        code shouldNotContain "data class UnknownDinosaur"
+      }
+
+      Then("the data object is annotated with @Serializable and @SerialName") {
+        code shouldContain "@Serializable"
+        code shouldContain """@SerialName("unknown")"""
+      }
+
+      Then("the data object implements the sealed interface") {
+        code shouldContain "data object UnknownDinosaur : Dinosaur"
+      }
+    }
+  }
+
+  Given("a spec with a discriminated oneOf where one variant has only a discriminator property") {
+    val spec = java.io.File("src/test/resources/empty-variant-api.yaml")
+
+    When("generated without serialisation") {
+      val files = DiplodokodeGenerator(GeneratorConfig()).generateFromSpec(spec)
+      val code = files.find { it.name == "UnknownDinosaur" }!!.toString()
+
+      Then("UnknownDinosaur is a data class with only the type property") {
+        code shouldContain "data class UnknownDinosaur"
+        code shouldContain "val type:"
+      }
+    }
+
+    When("generated with serialisation") {
+      val files = DiplodokodeGenerator(
+          GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy)
+      ).generateFromSpec(spec)
+      val code = files.find { it.name == "UnknownDinosaur" }!!.toString()
+
+      Then("UnknownDinosaur is a data object") {
+        code shouldContain "data object UnknownDinosaur"
+        code shouldNotContain "data class UnknownDinosaur"
+      }
     }
   }
 

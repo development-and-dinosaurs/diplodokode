@@ -47,6 +47,10 @@ internal class DataClassGenerator(
           buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
 
+    if (constructorParams.isEmpty()) {
+      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverride)
+    }
+
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
     if (allTypes.any { typeResolver.containsKotlinUuid(it) }) {
       fileBuilder.addAnnotation(
@@ -75,6 +79,29 @@ internal class DataClassGenerator(
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
+  }
+
+  private fun generateDataObject(
+      className: String,
+      fileBuilder: FileSpec.Builder,
+      implementedInterfaces: List<String>,
+      serialiseDiscriminator: Boolean,
+      discriminatorOverride: DiscriminatorOverride?,
+  ): FileSpec {
+    val objectBuilder = TypeSpec.objectBuilder(className)
+        .addModifiers(KModifier.DATA)
+        .also { builder ->
+          config.serialisationStrategy?.let { strategy ->
+            builder.addAnnotation(strategy.classAnnotation)
+            if (serialiseDiscriminator) {
+              strategy.variantAnnotation(discriminatorOverride!!.rawValue)?.let { builder.addAnnotation(it) }
+            }
+          }
+        }
+    implementedInterfaces.forEach { iface ->
+      objectBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+    }
+    return fileBuilder.addType(objectBuilder.build()).build()
   }
 
   private fun buildInlineEnumClasses(
