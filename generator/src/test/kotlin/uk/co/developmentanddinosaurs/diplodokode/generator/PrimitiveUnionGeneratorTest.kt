@@ -1,0 +1,195 @@
+package uk.co.developmentanddinosaurs.diplodokode.generator
+
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
+import java.io.File
+
+class PrimitiveUnionGeneratorTest : BehaviorSpec({
+
+    Given("a spec with a data class that has a oneOf string|number property") {
+        val spec = File("src/test/resources/primitive-union-property-api.yaml")
+        val generator = DiplodokodeGenerator(GeneratorConfig())
+        val files = generator.generateFromSpec(spec)
+
+        Then("a StringOrDouble file is generated") {
+            files.any { it.name == "StringOrDouble" } shouldBe true
+        }
+
+        Then("only one StringOrDouble file is generated even though two schemas share the same union type") {
+            files.count { it.name == "StringOrDouble" } shouldBe 1
+        }
+
+        Then("the data class property uses StringOrDouble as its type") {
+            val dinosaurCode = files.find { it.name == "Dinosaur" }!!.toString()
+            dinosaurCode shouldContain "val score: StringOrDouble?"
+        }
+
+        Then("the StringOrDouble file contains a sealed interface") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "sealed interface StringOrDouble"
+        }
+
+        Then("the StringOrDouble file contains value class wrappers for each variant") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "value class StringValue"
+            code shouldContain "value class DoubleValue"
+        }
+
+        Then("the value classes hold the correct types") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "val `value`: String"
+            code shouldContain "val `value`: Double"
+        }
+
+        Then("no serializer is generated when no serialisation strategy is configured") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldNotContain "Serializer"
+        }
+    }
+
+    Given("a spec with a data class that has a oneOf string|number property and serialisation enabled") {
+        val spec = File("src/test/resources/primitive-union-property-api.yaml")
+        val generator = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+        val files = generator.generateFromSpec(spec)
+        val code = files.find { it.name == "StringOrDouble" }!!.toString()
+
+        Then("the sealed interface is annotated with @Serializable(with = ...)") {
+            code shouldContain "@Serializable(with = StringOrDoubleSerializer::class)"
+        }
+
+        Then("a StringOrDoubleSerializer object is generated") {
+            code shouldContain "object StringOrDoubleSerializer"
+        }
+
+        Then("the serializer implements KSerializer<StringOrDouble>") {
+            code shouldContain "KSerializer<StringOrDouble>"
+        }
+
+        Then("the serialize function dispatches on each variant type") {
+            code shouldContain "is StringOrDouble.StringValue -> encoder.encodeString(value.value)"
+            code shouldContain "is StringOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
+        }
+
+        Then("the deserialize function reads a JsonElement and dispatches by primitive type") {
+            code shouldContain "JsonDecoder"
+            code shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
+            code shouldContain "else -> StringOrDouble.DoubleValue(element.content.toDouble())"
+        }
+    }
+
+    Given("two schemas with the same primitive types declared in different orders") {
+        val generator = DiplodokodeGenerator(GeneratorConfig())
+
+        val stringFirst = generator.generateFromSpec(File("src/test/resources/primitive-union-property-api.yaml"))
+        val numberFirstSpec = java.io.File.createTempFile("number-first", ".yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Number First API
+                  version: "1.0"
+                components:
+                  schemas:
+                    Triceratops:
+                      type: object
+                      properties:
+                        score:
+                          oneOf:
+                            - type: number
+                            - type: string
+                """.trimIndent()
+            )
+        }
+        val numberFirst = generator.generateFromSpec(numberFirstSpec)
+
+        Then("both produce a file named StringOrDouble, not DoubleOrString") {
+            stringFirst.any { it.name == "StringOrDouble" } shouldBe true
+            numberFirst.any { it.name == "StringOrDouble" } shouldBe true
+            numberFirst.any { it.name == "DoubleOrString" } shouldBe false
+        }
+
+        Then("both produce identical StringOrDouble files") {
+            val a = stringFirst.find { it.name == "StringOrDouble" }!!.toString()
+            val b = numberFirst.find { it.name == "StringOrDouble" }!!.toString()
+            a shouldBe b
+        }
+    }
+
+    Given("a PrimitiveUnionGenerator directly") {
+        val config = GeneratorConfig()
+        val generator = PrimitiveUnionGenerator(config)
+
+        When("given a string|integer union") {
+            val schema = Schema(
+                oneOf = listOf(
+                  Schema(type = "string"),
+                  Schema(type = "integer"),
+                )
+            )
+            val code = generator.generate("StringOrInt", schema).toString()
+
+            Then("it generates StringValue and IntValue wrappers") {
+                code shouldContain "value class StringValue"
+                code shouldContain "value class IntValue"
+            }
+
+            Then("IntValue holds an Int") {
+                code shouldContain "val `value`: Int"
+            }
+        }
+
+        When("given a string|boolean|number union") {
+            val schema = Schema(
+                oneOf = listOf(
+                  Schema(type = "string"),
+                  Schema(type = "boolean"),
+                  Schema(type = "number"),
+                )
+            )
+            val code = generator.generate("StringOrBooleanOrDouble", schema).toString()
+
+            Then("it generates three value class wrappers") {
+                code shouldContain "value class StringValue"
+                code shouldContain "value class BooleanValue"
+                code shouldContain "value class DoubleValue"
+            }
+        }
+
+        When("given a union of all four primitive types") {
+            val schema = Schema(
+                oneOf = listOf(
+                  Schema(type = "string"),
+                  Schema(type = "boolean"),
+                  Schema(type = "integer"),
+                  Schema(type = "number"),
+                )
+            )
+            val config = GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy)
+            val code = PrimitiveUnionGenerator(config).generate("StringOrBooleanOrIntOrDouble", schema).toString()
+
+            Then("it generates four value class wrappers") {
+                code shouldContain "value class StringValue"
+                code shouldContain "value class BooleanValue"
+                code shouldContain "value class IntValue"
+                code shouldContain "value class DoubleValue"
+            }
+
+            Then("the deserializer checks each type in disambiguation order") {
+                code shouldContain "element.isString -> StringOrBooleanOrIntOrDouble.StringValue(element.content)"
+                code shouldContain "!element.isString && element.content.toBooleanStrictOrNull() != null -> StringOrBooleanOrIntOrDouble.BooleanValue(element.content.toBooleanStrict())"
+                code shouldContain "!element.isString && element.content.toIntOrNull() != null -> StringOrBooleanOrIntOrDouble.IntValue(element.content.toInt())"
+                code shouldContain "else -> StringOrBooleanOrIntOrDouble.DoubleValue(element.content.toDouble())"
+            }
+
+            Then("the serializer handles all four variants") {
+                code shouldContain "is StringOrBooleanOrIntOrDouble.StringValue -> encoder.encodeString(value.value)"
+                code shouldContain "is StringOrBooleanOrIntOrDouble.BooleanValue -> encoder.encodeBoolean(value.value)"
+                code shouldContain "is StringOrBooleanOrIntOrDouble.IntValue -> encoder.encodeInt(value.value)"
+                code shouldContain "is StringOrBooleanOrIntOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
+            }
+        }
+    }
+})

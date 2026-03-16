@@ -36,6 +36,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
       moduleGenerator.generate(interfaceVariants)
     } else null
 
-    return if (moduleFile != null) classFiles + moduleFile else classFiles
+    val allFiles = if (moduleFile != null) classFiles + moduleFile else classFiles
+    return allFiles.distinctBy { "${it.packageName}.${it.name}" }
   }
 }

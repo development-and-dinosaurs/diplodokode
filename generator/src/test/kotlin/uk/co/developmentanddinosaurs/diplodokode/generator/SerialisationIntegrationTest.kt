@@ -10,6 +10,8 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diplodocus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Sauropod
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Stegosaurus
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.StringOrDouble
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.sauropodModule
 import java.io.File
@@ -199,6 +201,86 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
             Then("the correct variant type is produced") {
                 decoded shouldBe Brachiosaurus(foreLegLength = 3.2)
+            }
+        }
+    }
+
+    Given("an OpenAPI spec with a primitive union property and serialisation enabled") {
+        val spec = File("src/test/resources/primitive-union-property-api.yaml")
+        val generatedFiles = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+            .generateFromSpec(spec)
+        val unionCode = generatedFiles.find { it.name == "StringOrDouble" }!!.toString()
+
+        Then("the sealed interface is annotated with @Serializable(with = ...)") {
+            unionCode shouldContain "@Serializable(with = StringOrDoubleSerializer::class)"
+        }
+
+        Then("the sealed interface contains @JvmInline value class wrappers") {
+            unionCode shouldContain "value class StringValue"
+            unionCode shouldContain "value class DoubleValue"
+        }
+
+        Then("the serializer dispatches each variant to the correct encode call") {
+            unionCode shouldContain "is StringOrDouble.StringValue -> encoder.encodeString(value.value)"
+            unionCode shouldContain "is StringOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
+        }
+
+        Then("the deserializer checks isString before falling back to Double") {
+            unionCode shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
+            unionCode shouldContain "else -> StringOrDouble.DoubleValue(element.content.toDouble())"
+        }
+
+        Then("only one StringOrDouble file is generated when two schemas share the union type") {
+            generatedFiles.count { it.name == "StringOrDouble" } shouldBe 1
+        }
+
+        When("a Stegosaurus with a string score is encoded") {
+            val stegosaurus = Stegosaurus(name = "Steggy", score = StringOrDouble.StringValue("excellent"))
+            val encoded = json.encodeToString(stegosaurus)
+
+            Then("the score field appears as a JSON string") {
+                encoded shouldContain """"score":"excellent""""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Stegosaurus>(encoded) shouldBe stegosaurus
+            }
+        }
+
+        When("a Stegosaurus with a numeric score is encoded") {
+            val stegosaurus = Stegosaurus(name = "Steggy", score = StringOrDouble.DoubleValue(9.5))
+            val encoded = json.encodeToString(stegosaurus)
+
+            Then("the score field appears as a JSON number") {
+                encoded shouldContain """"score":9.5"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Stegosaurus>(encoded) shouldBe stegosaurus
+            }
+        }
+
+        When("a JSON payload with a string score is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":"excellent"}""")
+
+            Then("the score is a StringValue") {
+                decoded.score shouldBe StringOrDouble.StringValue("excellent")
+            }
+        }
+
+        When("a JSON payload with a numeric score is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":9.5}""")
+
+            Then("the score is a DoubleValue") {
+                decoded.score shouldBe StringOrDouble.DoubleValue(9.5)
+            }
+        }
+
+        When("a JSON payload with no score field is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy"}""")
+
+            Then("the score is null") {
+                decoded.score shouldBe null
             }
         }
     }

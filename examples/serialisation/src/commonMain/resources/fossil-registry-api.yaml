@@ -49,6 +49,11 @@ components:
         completeness_percent:
           type: number
           description: Estimated completeness of the fossil as a percentage
+        length_estimate:
+          description: Estimated length of the dinosaur — may be an exact measurement in metres or a descriptive string
+          oneOf:
+            - type: number
+            - type: string
 
     Dinosaur:
       description: A dinosaur that left a fossil record

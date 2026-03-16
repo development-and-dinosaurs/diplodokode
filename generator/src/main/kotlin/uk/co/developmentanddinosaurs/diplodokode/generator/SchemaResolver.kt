@@ -30,7 +30,22 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }
     val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas, flatSchemas)
     val interfacePropertyNames = buildInterfacePropertyNames(schemas, interfaceMap)
-    return ResolvedSpec(flatSchemas, interfaceMap, enumMap, overrideMap, interfacePropertyNames)
+    val primitiveUnionSchemas = collectPrimitiveUnionSchemas(flatSchemas)
+    return ResolvedSpec(flatSchemas + primitiveUnionSchemas, interfaceMap, enumMap, overrideMap, interfacePropertyNames)
+  }
+
+  private fun collectPrimitiveUnionSchemas(schemas: Map<String, Schema>): Map<String, Schema> {
+    val result = mutableMapOf<String, Schema>()
+    schemas.values.forEach { schema ->
+      schema.properties?.values?.forEach { propSchema ->
+        val oneOf = propSchema.oneOf ?: return@forEach
+        if (isPrimitiveUnion(oneOf)) {
+          val name = primitiveUnionName(oneOf, config.typeMappingStrategy)
+          result[name] = Schema(oneOf = oneOf)
+        }
+      }
+    }
+    return result
   }
 
   private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: MutableSet<String>): Schema {
