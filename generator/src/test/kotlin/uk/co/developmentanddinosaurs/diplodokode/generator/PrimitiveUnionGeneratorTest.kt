@@ -48,6 +48,28 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
             val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldNotContain "Serializer"
         }
+
+        Then("a Union2 file is generated alongside StringOrDouble") {
+            files.any { it.name == "Union2" } shouldBe true
+        }
+
+        Then("StringOrDouble extends Union2<String, Double>") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "Union2<String, Double>"
+        }
+
+        Then("a fold function is generated inside StringOrDouble") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "override fun <R> fold"
+            code shouldContain "is StringValue -> onFirst(value)"
+            code shouldContain "is DoubleValue -> onSecond(value)"
+        }
+
+        Then("a companion object with invoke overloads is generated") {
+            val code = files.find { it.name == "StringOrDouble" }!!.toString()
+            code shouldContain "companion object"
+            code shouldContain "operator fun invoke"
+        }
     }
 
     Given("a spec with a data class that has a oneOf string|number property and serialisation enabled") {
@@ -84,7 +106,7 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         val generator = DiplodokodeGenerator(GeneratorConfig())
 
         val stringFirst = generator.generateFromSpec(File("src/test/resources/primitive-union-property-api.yaml"))
-        val numberFirstSpec = java.io.File.createTempFile("number-first", ".yaml").also {
+        val numberFirstSpec = File.createTempFile("number-first", ".yaml").also {
             it.writeText(
                 """
                 openapi: 3.0.3

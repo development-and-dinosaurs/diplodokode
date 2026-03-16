@@ -6,10 +6,13 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.LambdaTypeName
+import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.TypeVariableName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private data class VariantInfo(
@@ -34,8 +37,12 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
             .sortedBy { PRIMITIVE_DECODE_PRIORITY[it.type] ?: Int.MAX_VALUE }
             .mapNotNull { variantInfoFor(it.type, config.typeMappingStrategy) }
 
+        val unionSuperInterface = ClassName(config.packageName, "Union${variants.size}")
+            .parameterizedBy(*variants.map { it.kotlinType }.toTypedArray())
+
         val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
             .addModifiers(KModifier.SEALED)
+            .addSuperinterface(unionSuperInterface)
 
         if (config.serialisationStrategy != null) {
             interfaceBuilder.addAnnotation(
@@ -48,6 +55,9 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
         variants.forEach { variant ->
             interfaceBuilder.addType(buildValueClass(variant, interfaceClassName))
         }
+
+        interfaceBuilder.addFunction(buildFoldFunction(variants))
+        interfaceBuilder.addType(buildCompanionObject(interfaceClassName, variants))
 
         val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
             .addType(interfaceBuilder.build())
@@ -122,6 +132,45 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
             .addParameter("value", interfaceClassName)
             .addCode(code.build())
             .build()
+    }
+
+    private fun buildFoldFunction(variants: List<VariantInfo>): FunSpec {
+        val rTypeVar = TypeVariableName("R")
+        val foldBuilder = FunSpec.builder("fold")
+            .addModifiers(KModifier.OVERRIDE)
+            .addTypeVariable(rTypeVar)
+        variants.forEachIndexed { i, variant ->
+            val lambdaType = LambdaTypeName.get(
+                parameters = listOf(ParameterSpec("", variant.kotlinType)),
+                returnType = rTypeVar,
+            )
+            foldBuilder.addParameter("on${ordinalName(i + 1)}", lambdaType)
+        }
+        foldBuilder.returns(rTypeVar)
+
+        val code = CodeBlock.builder()
+        code.beginControlFlow("return when (this)")
+        variants.forEachIndexed { i, variant ->
+            code.addStatement("is %L -> on%L(value)", variant.wrapperName, ordinalName(i + 1))
+        }
+        code.endControlFlow()
+
+        return foldBuilder.addCode(code.build()).build()
+    }
+
+    private fun buildCompanionObject(interfaceClassName: ClassName, variants: List<VariantInfo>): TypeSpec {
+        val companionBuilder = TypeSpec.companionObjectBuilder()
+        variants.forEach { variant ->
+            companionBuilder.addFunction(
+                FunSpec.builder("invoke")
+                    .addModifiers(KModifier.OPERATOR)
+                    .addParameter("value", variant.kotlinType)
+                    .returns(interfaceClassName)
+                    .addStatement("return %L(value)", variant.wrapperName)
+                    .build()
+            )
+        }
+        return companionBuilder.build()
     }
 
     private fun buildDeserializeFunction(

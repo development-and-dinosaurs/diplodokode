@@ -20,13 +20,33 @@ import kotlinx.serialization.json.JsonPrimitive
  * generated code at test runtime.
  */
 
+interface Union2<A, B> {
+    fun <R> fold(onFirst: (A) -> R, onSecond: (B) -> R): R
+
+    fun firstOrNull(): A? = fold({ it }, { null })
+    fun secondOrNull(): B? = fold({ null }, { it })
+
+    fun first(): A = firstOrNull() ?: error("Expected First variant of Union2")
+    fun second(): B = secondOrNull() ?: error("Expected Second variant of Union2")
+}
+
 @Serializable(with = StringOrDoubleSerializer::class)
-sealed interface StringOrDouble {
+sealed interface StringOrDouble : Union2<String, Double> {
     @JvmInline
     value class StringValue(val value: String) : StringOrDouble
 
     @JvmInline
     value class DoubleValue(val value: Double) : StringOrDouble
+
+    override fun <R> fold(onFirst: (String) -> R, onSecond: (Double) -> R): R = when (this) {
+        is StringValue -> onFirst(value)
+        is DoubleValue -> onSecond(value)
+    }
+
+    companion object {
+        operator fun invoke(value: String): StringOrDouble = StringValue(value)
+        operator fun invoke(value: Double): StringOrDouble = DoubleValue(value)
+    }
 }
 
 object StringOrDoubleSerializer : KSerializer<StringOrDouble> {

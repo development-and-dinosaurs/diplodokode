@@ -283,6 +283,80 @@ class SerialisationIntegrationTest : BehaviorSpec({
                 decoded.score shouldBe null
             }
         }
+
+        Then("a Union2 file is generated") {
+            generatedFiles.any { it.name == "Union2" } shouldBe true
+        }
+
+        Then("Union2 declares an abstract fold function") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "interface Union2<A, B>"
+            code shouldContain "fun <R> fold("
+        }
+
+        Then("Union2 has default firstOrNull and secondOrNull accessors") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "fun firstOrNull()"
+            code shouldContain "fun secondOrNull()"
+        }
+
+        Then("Union2 has default first and second throwing accessors") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "fun first()"
+            code shouldContain "fun second()"
+        }
+    }
+
+    Given("a StringOrDouble fixture instance") {
+        Then("invoke with a String constructs a StringValue") {
+            StringOrDouble("hello") shouldBe StringOrDouble.StringValue("hello")
+        }
+
+        Then("invoke with a Double constructs a DoubleValue") {
+            StringOrDouble(9.5) shouldBe StringOrDouble.DoubleValue(9.5)
+        }
+
+        Then("fold on a StringValue returns the first lambda result") {
+            val result = StringOrDouble("hello").fold(onFirst = { "string: $it" }, onSecond = { "double: $it" })
+            result shouldBe "string: hello"
+        }
+
+        Then("fold on a DoubleValue returns the second lambda result") {
+            val result = StringOrDouble(9.5).fold(onFirst = { "string: $it" }, onSecond = { "number: $it" })
+            result shouldBe "number: 9.5"
+        }
+
+        Then("firstOrNull on a StringValue returns the string") {
+            StringOrDouble("hello").firstOrNull() shouldBe "hello"
+        }
+
+        Then("firstOrNull on a DoubleValue returns null") {
+            StringOrDouble(9.5).firstOrNull() shouldBe null
+        }
+
+        Then("secondOrNull on a DoubleValue returns the double") {
+            StringOrDouble(9.5).secondOrNull() shouldBe 9.5
+        }
+
+        Then("secondOrNull on a StringValue returns null") {
+            StringOrDouble("hello").secondOrNull() shouldBe null
+        }
+
+        Then("first on a StringValue returns the string") {
+            StringOrDouble("hello").first() shouldBe "hello"
+        }
+
+        Then("first on a DoubleValue throws") {
+            runCatching { StringOrDouble(9.5).first() }.isFailure shouldBe true
+        }
+
+        Then("second on a DoubleValue returns the double") {
+            StringOrDouble(9.5).second() shouldBe 9.5
+        }
+
+        Then("second on a StringValue throws") {
+            runCatching { StringOrDouble("hello").second() }.isFailure shouldBe true
+        }
     }
 
     Given("an OpenAPI spec with Any-typed and Map-typed properties and serialisation enabled") {
