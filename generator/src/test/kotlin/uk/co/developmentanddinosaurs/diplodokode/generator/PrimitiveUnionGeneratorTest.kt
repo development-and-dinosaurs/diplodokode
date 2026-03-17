@@ -193,6 +193,26 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         }
     }
 
+    Given("a spec with an inline oneOf property and a custom naming strategy") {
+        val customNaming = object : NamingStrategy {
+            override fun className(specName: String) = "My$specName"
+            override fun propertyName(specName: String) = specName
+            override fun enumConstant(specValue: String) = specValue.uppercase()
+        }
+        val spec = File("src/test/resources/primitive-union-property-api.yaml")
+        val generator = DiplodokodeGenerator(GeneratorConfig(namingStrategy = customNaming))
+        val files = generator.generateFromSpec(spec)
+
+        Then("the generated union file uses the naming strategy transformed name") {
+            files.any { it.name == "MyStringOrDouble" } shouldBe true
+        }
+
+        Then("the data class property references the naming strategy transformed type") {
+            val dinosaurCode = files.find { it.name == "MyDinosaur" }!!.toString()
+            dinosaurCode shouldContain "MyStringOrDouble"
+        }
+    }
+
     Given("a PrimitiveUnionGenerator directly") {
         val config = GeneratorConfig()
         val generator = PrimitiveUnionGenerator(config)

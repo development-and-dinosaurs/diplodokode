@@ -27,7 +27,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
           }
           propValue.additionalProperties != null -> resolveMapType(propValue.additionalProperties)
           propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) ->
-              ClassName(config.packageName, primitiveUnionName(propValue.oneOf, config.typeMappingStrategy))
+              ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(propValue.oneOf, config.typeMappingStrategy)))
           else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type, propValue.format)
         }
     return if (isNullable) baseType.copy(nullable = true) else baseType
