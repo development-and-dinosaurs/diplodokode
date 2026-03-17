@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Named Union API
+  version: "1.0"
+components:
+  schemas:
+    MeasurementValue:
+      oneOf:
+        - type: string
+        - type: number
+    TagValue:
+      oneOf:
+        - type: string
+        - type: boolean
+        - type: integer
+    Fossil:
+      type: object
+      properties:
+        name:
+          type: string
+        length:
+          $ref: "#/components/schemas/MeasurementValue"
+        tag:
+          $ref: "#/components/schemas/TagValue"
+      required:
+        - name

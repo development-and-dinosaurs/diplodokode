@@ -140,6 +140,65 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         }
     }
 
+    Given("a spec where top-level schemas are themselves oneOf primitives") {
+        val spec = File("src/test/resources/named-union-api.yaml")
+        val generator = DiplodokodeGenerator(GeneratorConfig())
+        val files = generator.generateFromSpec(spec)
+
+        Then("MeasurementValue is generated with its spec-given name") {
+            files.any { it.name == "MeasurementValue" } shouldBe true
+        }
+
+        Then("MeasurementValue is a sealed interface extending Union2<String, Double>") {
+            val code = files.find { it.name == "MeasurementValue" }!!.toString()
+            code shouldContain "sealed interface MeasurementValue"
+            code shouldContain "Union2<String, Double>"
+        }
+
+        Then("MeasurementValue has StringValue and DoubleValue wrappers") {
+            val code = files.find { it.name == "MeasurementValue" }!!.toString()
+            code shouldContain "value class StringValue"
+            code shouldContain "value class DoubleValue"
+        }
+
+        Then("MeasurementValue has a fold function and companion with invoke overloads") {
+            val code = files.find { it.name == "MeasurementValue" }!!.toString()
+            code shouldContain "override fun <R> fold"
+            code shouldContain "companion object"
+            code shouldContain "operator fun invoke"
+        }
+
+        Then("TagValue is a sealed interface extending Union3<String, Boolean, Int>") {
+            val code = files.find { it.name == "TagValue" }!!.toString()
+            code shouldContain "sealed interface TagValue"
+            code shouldContain "Union3<String, Boolean, Int>"
+        }
+
+        Then("a Union2 file is generated for MeasurementValue") {
+            files.any { it.name == "Union2" } shouldBe true
+        }
+
+        Then("a Union3 file is generated for TagValue") {
+            files.any { it.name == "Union3" } shouldBe true
+        }
+
+        Then("Union3 has first, second, third accessors") {
+            val code = files.find { it.name == "Union3" }!!.toString()
+            code shouldContain "fun firstOrNull()"
+            code shouldContain "fun secondOrNull()"
+            code shouldContain "fun thirdOrNull()"
+            code shouldContain "fun first()"
+            code shouldContain "fun second()"
+            code shouldContain "fun third()"
+        }
+
+        Then("Fossil uses MeasurementValue and TagValue as its property types") {
+            val code = files.find { it.name == "Fossil" }!!.toString()
+            code shouldContain "val length: MeasurementValue?"
+            code shouldContain "val tag: TagValue?"
+        }
+    }
+
     Given("a PrimitiveUnionGenerator directly") {
         val config = GeneratorConfig()
         val generator = PrimitiveUnionGenerator(config)
