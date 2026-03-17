@@ -100,7 +100,7 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         val generator = DiplodokodeGenerator(GeneratorConfig())
 
         val stringFirst = generator.generateFromSpec(File("src/test/resources/primitive-union-property-api.yaml"))
-        val numberFirstSpec = File.createTempFile("number-first", ".yaml").also {
+        val numberFirstSpec = File.createTempFile("number-first", ".yaml").also { it.deleteOnExit() }.also {
             it.writeText(
                 """
                 openapi: 3.0.3
