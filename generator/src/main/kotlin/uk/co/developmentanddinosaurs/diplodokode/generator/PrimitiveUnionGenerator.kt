@@ -183,7 +183,13 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
         val serializationExceptionType = ClassName(KOTLINX_SERIALIZATION, "SerializationException")
 
         val code = CodeBlock.builder()
-        code.addStatement("val element = (decoder as %T).decodeJsonElement()", jsonDecoderType)
+        code.addStatement(
+            "if (decoder !is %T) throw %T(%S)",
+            jsonDecoderType,
+            serializationExceptionType,
+            "Primitive union types only support JSON deserialization",
+        )
+        code.addStatement("val element = decoder.decodeJsonElement()")
         code.addStatement(
             "if (element !is %T) throw %T(%S)",
             jsonPrimitiveType,

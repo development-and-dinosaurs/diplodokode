@@ -72,7 +72,8 @@ object StringOrDoubleSerializer : KSerializer<StringOrDouble> {
     }
 
     override fun deserialize(decoder: Decoder): StringOrDouble {
-        val element = (decoder as JsonDecoder).decodeJsonElement()
+        if (decoder !is JsonDecoder) throw SerializationException("Primitive union types only support JSON deserialization")
+        val element = decoder.decodeJsonElement()
         if (element !is JsonPrimitive) throw SerializationException("Expected a primitive value for StringOrDouble")
         return when {
             element.isString -> StringOrDouble.StringValue(element.content)
@@ -124,7 +125,8 @@ object TagValueSerializer : KSerializer<TagValue> {
     }
 
     override fun deserialize(decoder: Decoder): TagValue {
-        val element = (decoder as JsonDecoder).decodeJsonElement()
+        if (decoder !is JsonDecoder) throw SerializationException("Primitive union types only support JSON deserialization")
+        val element = decoder.decodeJsonElement()
         if (element !is JsonPrimitive) throw SerializationException("Expected a primitive value for TagValue")
         return when {
             element.isString -> TagValue.StringValue(element.content)

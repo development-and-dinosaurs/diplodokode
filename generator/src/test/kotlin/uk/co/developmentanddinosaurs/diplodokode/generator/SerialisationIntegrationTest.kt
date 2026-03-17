@@ -228,6 +228,11 @@ class SerialisationIntegrationTest : BehaviorSpec({
             unionCode shouldContain "is StringOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
         }
 
+        Then("the deserializer guards against non-JSON decoders") {
+            unionCode shouldContain "if (decoder !is JsonDecoder) throw SerializationException"
+            unionCode shouldContain "Primitive union types only support JSON deserialization"
+        }
+
         Then("the deserializer checks each variant condition and throws for unexpected values") {
             unionCode shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
             unionCode shouldContain "!element.isString && element.content.toDoubleOrNull() != null -> StringOrDouble.DoubleValue(element.content.toDouble())"
