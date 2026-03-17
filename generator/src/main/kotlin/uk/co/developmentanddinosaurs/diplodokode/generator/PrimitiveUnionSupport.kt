@@ -11,6 +11,14 @@ internal val PRIMITIVE_DECODE_PRIORITY = mapOf("string" to 0, "boolean" to 1, "i
 internal fun isPrimitiveUnion(oneOf: List<Schema>): Boolean =
     oneOf.isNotEmpty() && oneOf.all { it.ref == null && it.format == null && it.type in PRIMITIVE_UNION_TYPES }
 
+internal fun ordinalName(idx: Int) = when (idx) {
+    1 -> "First"
+    2 -> "Second"
+    3 -> "Third"
+    4 -> "Fourth"
+    else -> "Variant$idx"
+}
+
 internal fun primitiveUnionName(oneOf: List<Schema>, typeMappingStrategy: TypeMappingStrategy): String =
   oneOf
     .sortedBy { PRIMITIVE_DECODE_PRIORITY[it.type] ?: Int.MAX_VALUE }

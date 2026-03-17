@@ -60,11 +60,3 @@ internal class UnionInterfaceGenerator(private val config: GeneratorConfig) {
 
     private fun variantLetter(idx: Int) = ('A' + idx - 1).toString()
 }
-
-internal fun ordinalName(idx: Int) = when (idx) {
-    1 -> "First"
-    2 -> "Second"
-    3 -> "Third"
-    4 -> "Fourth"
-    else -> "Variant$idx"
-}
