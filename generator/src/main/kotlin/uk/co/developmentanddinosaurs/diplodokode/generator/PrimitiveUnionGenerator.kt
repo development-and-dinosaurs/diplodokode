@@ -34,6 +34,7 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
 
         val variants = schema.oneOf!!
             .sortedBy { PRIMITIVE_DECODE_PRIORITY[it.type] ?: Int.MAX_VALUE }
+            .distinctBy { it.type }
             .mapNotNull { variantInfoFor(it.type, config.typeMappingStrategy) }
 
         val unionSuperInterface = ClassName(config.packageName, "Union${variants.size}")

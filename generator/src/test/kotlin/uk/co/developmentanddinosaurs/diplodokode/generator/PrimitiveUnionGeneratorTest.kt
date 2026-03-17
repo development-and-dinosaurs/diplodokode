@@ -254,6 +254,40 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
             }
         }
 
+        When("given a oneOf with only duplicate string entries") {
+            val schema = Schema(
+                oneOf = listOf(
+                    Schema(type = "string"),
+                    Schema(type = "string"),
+                )
+            )
+            val code = generator.generate("StringOrString", schema).toString()
+
+            Then("only one StringValue wrapper is generated") {
+                code.indexOf("value class StringValue") shouldBe code.lastIndexOf("value class StringValue")
+            }
+        }
+
+        When("given a oneOf with duplicate primitive types") {
+            val schema = Schema(
+                oneOf = listOf(
+                    Schema(type = "string"),
+                    Schema(type = "string"),
+                    Schema(type = "number"),
+                )
+            )
+            val code = generator.generate("StringOrDouble", schema).toString()
+
+            Then("duplicate types are deduplicated to a single wrapper class") {
+                code.indexOf("value class StringValue") shouldBe code.lastIndexOf("value class StringValue")
+            }
+
+            Then("only two wrappers are generated") {
+                code shouldContain "value class StringValue"
+                code shouldContain "value class DoubleValue"
+            }
+        }
+
         When("given a union of all four primitive types") {
             val schema = Schema(
                 oneOf = listOf(
