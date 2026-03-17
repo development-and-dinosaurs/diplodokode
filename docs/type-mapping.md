@@ -38,13 +38,13 @@ public data class Dinosaur(
 ## Base types
 
 | OpenAPI type | Kotlin type |
-|---|---|
-| `string` | `String` |
-| `integer` | `Int` |
-| `number` | `Double` |
-| `boolean` | `Boolean` |
-| `array` | `List<T>` |
-| `object` | `Any` |
+|--------------|-------------|
+| `string`     | `String`    |
+| `integer`    | `Int`       |
+| `number`     | `Double`    |
+| `boolean`    | `Boolean`   |
+| `array`      | `List<T>`   |
+| `object`     | `Any`       |
 
 ---
 
@@ -56,30 +56,30 @@ The `format` keyword on a property refines the Kotlin type. Two presets are avai
 
 All types are safe for use in Kotlin Multiplatform projects.
 
-| Format | Kotlin type | Notes |
-|---|---|---|
-| `date-time` | `kotlinx.datetime.Instant` | Requires `kotlinx-datetime` |
-| `date` | `kotlinx.datetime.LocalDate` | Requires `kotlinx-datetime` |
-| `time` | `kotlinx.datetime.LocalTime` | Requires `kotlinx-datetime` |
-| `duration` | `kotlin.time.Duration` | Built into Kotlin stdlib |
-| `uuid` | `kotlin.uuid.Uuid` | Adds `@file:OptIn(ExperimentalUuidApi::class)` |
-| `uri` | `String` | No KMP-safe URI type available |
-| `byte` / `binary` | `ByteArray` | |
-| `int64` | `Long` | |
-| `float` | `Float` | |
+| Format            | Kotlin type                  | Notes                                          |
+|-------------------|------------------------------|------------------------------------------------|
+| `date-time`       | `kotlinx.datetime.Instant`   | Requires `kotlinx-datetime`                    |
+| `date`            | `kotlinx.datetime.LocalDate` | Requires `kotlinx-datetime`                    |
+| `time`            | `kotlinx.datetime.LocalTime` | Requires `kotlinx-datetime`                    |
+| `duration`        | `kotlin.time.Duration`       | Built into Kotlin stdlib                       |
+| `uuid`            | `kotlin.uuid.Uuid`           | Adds `@file:OptIn(ExperimentalUuidApi::class)` |
+| `uri`             | `String`                     | No KMP-safe URI type available                 |
+| `byte` / `binary` | `ByteArray`                  |                                                |
+| `int64`           | `Long`                       |                                                |
+| `float`           | `Float`                      |                                                |
 
 ### Java
 
 JVM-only types from `java.time` and `java.util`.
 
-| Format | Kotlin type |
-|---|---|
-| `date-time` | `java.time.Instant` |
-| `date` | `java.time.LocalDate` |
-| `time` | `java.time.LocalTime` |
-| `duration` | `java.time.Duration` |
-| `uuid` | `java.util.UUID` |
-| `uri` | `java.net.URI` |
+| Format      | Kotlin type           |
+|-------------|-----------------------|
+| `date-time` | `java.time.Instant`   |
+| `date`      | `java.time.LocalDate` |
+| `time`      | `java.time.LocalTime` |
+| `duration`  | `java.time.Duration`  |
+| `uuid`      | `java.util.UUID`      |
+| `uri`       | `java.net.URI`        |
 
 Switch to Java types:
 
@@ -108,16 +108,41 @@ diplodokode {
 
 ---
 
+## Primitive unions
+
+A property or schema with `oneOf` a set of primitive types generates a sealed interface with `@JvmInline value class` wrappers for each variant.
+
+```yaml
+LengthEstimate:
+  oneOf:
+    - type: number
+    - type: string
+```
+
+```kotlin
+sealed interface LengthEstimate : Union2<Double, String> {
+    @JvmInline value class DoubleValue(val value: Double) : LengthEstimate
+    @JvmInline value class StringValue(val value: String) : LengthEstimate
+    // fold, companion invoke overloads ...
+}
+```
+
+Variants are ordered canonically (string → boolean → integer → number) regardless of spec order, so `oneOf: [number, string]` produces `StringOrDouble`, not `DoubleOrString`.
+
+See [Primitive unions](primitive-unions.md) for full usage, the `Union` interfaces, and naming recommendations.
+
+---
+
 ## Arrays
 
 Array items resolve recursively:
 
-| Spec | Kotlin |
-|---|---|
-| `items.$ref: Tyrannosaur` | `List<Tyrannosaur>` |
-| `items.type: string` | `List<String>` |
-| `items.type: array, items.type: integer` | `List<List<Int>>` |
-| No `items` | `List<Any>` |
+| Spec                                     | Kotlin              |
+|------------------------------------------|---------------------|
+| `items.$ref: Tyrannosaur`                | `List<Tyrannosaur>` |
+| `items.type: string`                     | `List<String>`      |
+| `items.type: array, items.type: integer` | `List<List<Int>>`   |
+| No `items`                               | `List<Any>`         |
 
 ---
 

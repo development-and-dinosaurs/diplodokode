@@ -45,6 +45,7 @@ public data class Dinosaur(
 - **Data classes** from `object` schemas, with required/optional fields mapped to non-nullable/nullable Kotlin types
 - **Enum classes** from `string` schemas with `enum` values, with constants uppercased from spec values
 - **Sealed interfaces** from `oneOf` and `anyOf` schemas, with typed discriminator support
+- **Primitive union types** from `oneOf` primitive schemas — sealed interfaces with `@JvmInline` value class wrappers, ergonomic `fold`, and generic `Union2`/`Union3`/`Union4` interfaces
 - **Flat composition** from `allOf` schemas (all sub-schemas merged into a single data class)
 - **KMP-safe type mapping** — `date-time` → `kotlinx.datetime.Instant`, `uuid` → `kotlin.uuid.Uuid`, etc.
 - **kotlinx.serialization** support — `@Serializable`, `@SerialName`, and a generated `SerializersModule` for polymorphism
@@ -56,9 +57,9 @@ public data class Dinosaur(
 
 Two artifacts are published to Maven Central:
 
-| Artifact | Coordinates | Use when |
-|---|---|---|
-| Gradle plugin | `uk.co.developmentanddinosaurs.diplodokode:diplodokode-plugin` | Generating code as part of a Gradle build |
+| Artifact          | Coordinates                                                       | Use when                                    |
+|-------------------|-------------------------------------------------------------------|---------------------------------------------|
+| Gradle plugin     | `uk.co.developmentanddinosaurs.diplodokode:diplodokode-plugin`    | Generating code as part of a Gradle build   |
 | Generator library | `uk.co.developmentanddinosaurs.diplodokode:diplodokode-generator` | Embedding the generator in your own tooling |
 
 ---
@@ -68,4 +69,5 @@ Two artifacts are published to Maven Central:
 - [Quick start](quick-start.md) — get up and running in a few minutes
 - [Type mapping](type-mapping.md) — understand how OpenAPI types map to Kotlin
 - [Polymorphism](polymorphism.md) — `oneOf`, `anyOf`, `allOf`, and discriminator patterns
+- [Primitive unions](primitive-unions.md) — fields that can be a string, a number, or another primitive type
 - [Serialisation](serialisation.md) — kotlinx.serialization integration

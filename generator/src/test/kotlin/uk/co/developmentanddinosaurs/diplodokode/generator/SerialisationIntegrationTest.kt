@@ -4,12 +4,17 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Brachiosaurus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diplodocus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Sauropod
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Pterodactyl
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Stegosaurus
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.StringOrDouble
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.TagValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.sauropodModule
 import java.io.File
@@ -199,6 +204,187 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
             Then("the correct variant type is produced") {
                 decoded shouldBe Brachiosaurus(foreLegLength = 3.2)
+            }
+        }
+    }
+
+    Given("an OpenAPI spec with a primitive union property and serialisation enabled") {
+        val spec = File("src/test/resources/primitive-union-property-api.yaml")
+        val generatedFiles = DiplodokodeGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
+            .generateFromSpec(spec)
+        val unionCode = generatedFiles.find { it.name == "StringOrDouble" }!!.toString()
+
+        Then("the sealed interface is annotated with @Serializable(with = ...)") {
+            unionCode shouldContain "@Serializable(with = StringOrDoubleSerializer::class)"
+        }
+
+        Then("the sealed interface contains @JvmInline value class wrappers") {
+            unionCode shouldContain "value class StringValue"
+            unionCode shouldContain "value class DoubleValue"
+        }
+
+        Then("the serializer dispatches each variant to the correct encode call") {
+            unionCode shouldContain "is StringOrDouble.StringValue -> encoder.encodeString(value.value)"
+            unionCode shouldContain "is StringOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
+        }
+
+        Then("the deserializer guards against non-JSON decoders") {
+            unionCode shouldContain "if (decoder !is JsonDecoder) throw SerializationException"
+            unionCode shouldContain "Primitive union types only support JSON deserialization"
+        }
+
+        Then("the deserializer checks each variant condition and throws for unexpected values") {
+            unionCode shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
+            unionCode shouldContain "!element.isString && element.content.toDoubleOrNull() != null -> StringOrDouble.DoubleValue(element.content.toDouble())"
+            unionCode shouldContain "else -> throw SerializationException"
+        }
+
+        Then("only one StringOrDouble file is generated when two schemas share the union type") {
+            generatedFiles.count { it.name == "StringOrDouble" } shouldBe 1
+        }
+
+        When("a Stegosaurus with a string score is encoded") {
+            val stegosaurus = Stegosaurus(name = "Steggy", score = StringOrDouble.StringValue("excellent"))
+            val encoded = json.encodeToString(stegosaurus)
+
+            Then("the score field appears as a JSON string") {
+                encoded shouldContain """"score":"excellent""""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Stegosaurus>(encoded) shouldBe stegosaurus
+            }
+        }
+
+        When("a Stegosaurus with a numeric score is encoded") {
+            val stegosaurus = Stegosaurus(name = "Steggy", score = StringOrDouble.DoubleValue(9.5))
+            val encoded = json.encodeToString(stegosaurus)
+
+            Then("the score field appears as a JSON number") {
+                encoded shouldContain """"score":9.5"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Stegosaurus>(encoded) shouldBe stegosaurus
+            }
+        }
+
+        When("a JSON payload with a string score is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":"excellent"}""")
+
+            Then("the score is a StringValue") {
+                decoded.score shouldBe StringOrDouble.StringValue("excellent")
+            }
+        }
+
+        When("a JSON payload with a numeric score is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":9.5}""")
+
+            Then("the score is a DoubleValue") {
+                decoded.score shouldBe StringOrDouble.DoubleValue(9.5)
+            }
+        }
+
+        When("a JSON payload with no score field is decoded") {
+            val decoded = json.decodeFromString<Stegosaurus>("""{"name":"Steggy"}""")
+
+            Then("the score is null") {
+                decoded.score shouldBe null
+            }
+        }
+
+        When("a JSON payload with a value that matches no variant is decoded") {
+            val result = runCatching { json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":true}""") }
+
+            Then("a SerializationException is thrown rather than NumberFormatException") {
+                (result.exceptionOrNull() is SerializationException) shouldBe true
+            }
+        }
+
+        Then("a Union2 file is generated") {
+            generatedFiles.any { it.name == "Union2" } shouldBe true
+        }
+
+        Then("Union2 declares an abstract fold function") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "interface Union2<A, B>"
+            code shouldContain "fun <R> fold("
+        }
+
+        Then("Union2 has default firstOrNull and secondOrNull accessors") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "fun firstOrNull()"
+            code shouldContain "fun secondOrNull()"
+        }
+
+        Then("Union2 has default first and second throwing accessors") {
+            val code = generatedFiles.find { it.name == "Union2" }!!.toString()
+            code shouldContain "fun first()"
+            code shouldContain "fun second()"
+        }
+    }
+
+    Given("a Pterodactyl with a TagValue (string|boolean|integer) fixture") {
+        When("a Pterodactyl with a string tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue("herbivore"))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON string") {
+                encoded shouldContain """"tag":"herbivore""""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a Pterodactyl with a boolean tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue(true))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON boolean") {
+                encoded shouldContain """"tag":true"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a Pterodactyl with an integer tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue(42))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON number") {
+                encoded shouldContain """"tag":42"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a JSON payload with a string tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":"herbivore"}""")
+
+            Then("the tag is a StringValue") {
+                decoded.tag shouldBe TagValue.StringValue("herbivore")
+            }
+        }
+
+        When("a JSON payload with a boolean tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":true}""")
+
+            Then("the tag is a BooleanValue") {
+                decoded.tag shouldBe TagValue.BooleanValue(true)
+            }
+        }
+
+        When("a JSON payload with an integer tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":42}""")
+
+            Then("the tag is an IntValue") {
+                decoded.tag shouldBe TagValue.IntValue(42)
             }
         }
     }

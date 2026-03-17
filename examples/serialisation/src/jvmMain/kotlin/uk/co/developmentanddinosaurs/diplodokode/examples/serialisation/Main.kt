@@ -3,6 +3,7 @@ package uk.co.developmentanddinosaurs.diplodokode.examples.serialisation
 import kotlinx.serialization.json.Json
 import uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generated.Diet
+import uk.co.developmentanddinosaurs.diplodokode.generated.StringOrDouble
 import uk.co.developmentanddinosaurs.diplodokode.generated.Era
 import uk.co.developmentanddinosaurs.diplodokode.generated.Fossil
 import uk.co.developmentanddinosaurs.diplodokode.generated.Sauropod
@@ -34,6 +35,7 @@ fun main() {
     check(sue.discoveryYear == 1990) { "Unexpected year: ${sue.discoveryYear}" }
     check(sue.discoveryLocation == "South Dakota, USA") { "Unexpected location: ${sue.discoveryLocation}" }
     check(sue.completenessPercent == 90.0) { "Unexpected completeness: ${sue.completenessPercent}" }
+    check(sue.lengthEstimate == StringOrDouble.DoubleValue(12.3)) { "Unexpected length: ${sue.lengthEstimate}" }
     println("✅ All assertions passed for Sue")
     println()
 
@@ -45,6 +47,7 @@ fun main() {
     check(dippy.diet == Diet.HERBIVORE) { "Unexpected diet: ${dippy.diet}" }
     check(dippy.discoveryYear == null) { "Expected null discoveryYear, got: ${dippy.discoveryYear}" }
     check(dippy.discoveryLocation == null) { "Expected null discoveryLocation, got: ${dippy.discoveryLocation}" }
+    check(dippy.lengthEstimate == StringOrDouble.StringValue("approximately 26 metres")) { "Unexpected length: ${dippy.lengthEstimate}" }
     println("✅ All assertions passed for Dippy")
     println()
 

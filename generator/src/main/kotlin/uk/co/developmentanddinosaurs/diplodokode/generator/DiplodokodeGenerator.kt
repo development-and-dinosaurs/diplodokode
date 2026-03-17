@@ -9,6 +9,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
   private val resolver = SchemaResolver(config)
   private val classGenerator = KotlinClassGenerator(config)
   private val moduleGenerator = SerializersModuleGenerator(config)
+  private val unionInterfaceGenerator = UnionInterfaceGenerator(config)
 
   fun generateFromSpec(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
@@ -36,6 +37,14 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
       moduleGenerator.generate(interfaceVariants)
     } else null
 
-    return if (moduleFile != null) classFiles + moduleFile else classFiles
+    val unionArities = resolvedSchemas.values
+      .mapNotNull { it.oneOf }
+      .filter { it.isNotEmpty() && isPrimitiveUnion(it) }
+      .map { it.size }
+      .toSet()
+    val unionInterfaceFiles = unionArities.map { unionInterfaceGenerator.generate(it) }
+
+    val allFiles = if (moduleFile != null) classFiles + moduleFile else classFiles
+    return (allFiles + unionInterfaceFiles).distinctBy { "${it.packageName}.${it.name}" }
   }
 }

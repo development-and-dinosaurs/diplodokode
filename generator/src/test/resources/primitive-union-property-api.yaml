@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: Primitive Union Property API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      properties:
+        name:
+          type: string
+        score:
+          oneOf:
+            - type: string
+            - type: number
+      required:
+        - name
+    Tyrannosaur:
+      type: object
+      properties:
+        name:
+          type: string
+        score:
+          oneOf:
+            - type: string
+            - type: number
+      required:
+        - name
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a dinosaur
+      responses:
+        '200':
+          description: A dinosaur
