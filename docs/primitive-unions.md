@@ -6,7 +6,9 @@ OpenAPI allows a field to declare `oneOf` a set of primitive types — for examp
 
 ## Why they exist
 
-Consider a spec where a fossil's length estimate might be recorded as a number (metres) or a freeform string when an exact figure isn't known:
+Consider a spec where a fossil's length estimate might be recorded as a number (metres) or a freeform string when an exact figure isn't known.
+
+This isn't _fantastic_ API design, but bear with me for the sake of this example. It's common enough to be annoying if the generator doesn't specifically cater for it.
 
 ```yaml
 components:
@@ -25,7 +27,9 @@ components:
         - type: string
 ```
 
-The closest Kotlin equivalent is `Any?`, but that loses all type information and plays poorly with kotlinx.serialization. Diplodokode generates a proper sealed type instead.
+The issue is that the primitive Double and String values in Kotlin don't share a common ancestor.
+
+Well, they do. But that common ancestor is `Any?`, which loses all type information and plays poorly with kotlinx.serialization. Diplodokode generates a proper sealed type instead.
 
 ---
 
@@ -62,7 +66,7 @@ object LengthEstimateSerializer : KSerializer<LengthEstimate> { ... }
 The serializer uses `JsonDecoder` to inspect the raw JSON element and dispatch to the correct variant. Serialisation must be configured to generate the serializer — see [Serialisation](serialisation.md).
 
 !!! warning "JSON only"
-    The generated serializer depends on `JsonDecoder` and only works with `kotlinx.serialization.json.Json`. Other formats (CBOR, Protobuf) are not supported for primitive union types.
+    The generated serializer depends on `JsonDecoder` and only works with `kotlinx.serialization.json.Json`. Other formats (CBOR, Protobuf, YAML) are not supported for primitive union types.
 
 !!! note "@JvmInline and boxing"
     Value class wrappers are erased on the JVM when used as their concrete type — `DoubleValue` compiles down to a plain `Double` with no extra allocation. However, when held as the sealed interface type (which is the common case here), the JVM requires a real object reference and boxing occurs at that boundary. The `@JvmInline` annotation is still the right choice — it signals intent, avoids redundant object creation where the concrete type is used directly, and is the idiomatic Kotlin pattern — but it does not eliminate allocations entirely in this use case.
@@ -111,18 +115,18 @@ val text: String? = fossil.lengthEstimate?.secondOrNull()     // null if it's a 
 The non-nullable variants `first()` / `second()` throw if the value is not that variant:
 
 ```kotlin
-val numeric: Double = fossil.lengthEstimate!!.first()   // throws if it's a string
+val numeric: Double = fossil.lengthEstimate.first()   // throws if it's a string
 ```
 
 ### The Union interfaces
 
 Every generated primitive union extends one of the generic `Union` interfaces, depending on how many variants it has:
 
-| Variants | Interface |
-|---|---|
-| 2 | `Union2<A, B>` |
-| 3 | `Union3<A, B, C>` |
-| 4 | `Union4<A, B, C, D>` |
+| Variants | Interface            |
+|----------|----------------------|
+| 2        | `Union2<A, B>`       |
+| 3        | `Union3<A, B, C>`    |
+| 4        | `Union4<A, B, C, D>` |
 
 These interfaces are generated alongside your models. Because `LengthEstimate` extends `Union2<Double, String>`, utility code can accept the abstract interface without knowing the concrete type name:
 
@@ -135,12 +139,12 @@ fun formatMeasurement(m: Union2<Double, String>): String =
 
 ## Supported primitive types
 
-| OpenAPI type | Kotlin wrapper |
-|---|---|
-| `string` | `StringValue(val value: String)` |
-| `integer` | `IntValue(val value: Int)` |
-| `number` | `DoubleValue(val value: Double)` |
-| `boolean` | `BooleanValue(val value: Boolean)` |
+| OpenAPI type | Kotlin wrapper                     |
+|--------------|------------------------------------|
+| `string`     | `StringValue(val value: String)`   |
+| `integer`    | `IntValue(val value: Int)`         |
+| `number`     | `DoubleValue(val value: Double)`   |
+| `boolean`    | `BooleanValue(val value: Boolean)` |
 
 When multiple types appear in the same `oneOf`, the variants are always ordered and named in canonical order — string → boolean → integer → number — regardless of the order they appear in the spec. This means `oneOf: [number, string]` produces `StringOrDouble`, not `DoubleOrString`.
 
@@ -172,8 +176,9 @@ components:
 This is the recommended approach because:
 
 - The name carries domain meaning — `val lengthEstimate: LengthEstimate?` is self-documenting
-- Multiple schemas can share the same union type — only one file is generated
 - Evolving the union (adding a variant, adding a description) is a single change in one place
+- Multiple schemas can share the same union type — only one file is generated
+    - This is also the case for inline unions, but you control it — I just like "rule of three"
 
 ### Inline `oneOf` on a property (convenience fallback)
 

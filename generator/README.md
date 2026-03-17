@@ -88,3 +88,37 @@ The `format` field on a property refines the Kotlin type. All mapped types are K
 > **Note:** `uri` maps to `String` — there is no KMP-compatible URI type.
 
 > **Note:** Files containing `uuid`-format properties have `@file:OptIn(ExperimentalUuidApi::class)` added automatically.
+
+## Primitive union types
+
+A schema or property with `oneOf` a set of primitive types generates a sealed interface with `@JvmInline value class` wrappers for each variant, a concrete `fold` implementation, and `companion object` `invoke` overloads.
+
+```yaml
+LengthEstimate:
+  oneOf:
+    - type: number
+    - type: string
+```
+
+```kotlin
+sealed interface LengthEstimate : Union2<Double, String> {
+    @JvmInline value class DoubleValue(val value: Double) : LengthEstimate
+    @JvmInline value class StringValue(val value: String) : LengthEstimate
+
+    override fun <R> fold(onFirst: (Double) -> R, onSecond: (String) -> R): R = when (this) {
+        is DoubleValue -> onFirst(value)
+        is StringValue -> onSecond(value)
+    }
+
+    companion object {
+        operator fun invoke(value: Double): LengthEstimate = DoubleValue(value)
+        operator fun invoke(value: String): LengthEstimate = StringValue(value)
+    }
+}
+```
+
+`Union2`, `Union3`, and `Union4` interfaces are generated alongside your models and provide default `firstOrNull()` / `secondOrNull()` / ... and `first()` / `second()` / ... accessors built on `fold`.
+
+Variants are always ordered canonically (string → boolean → integer → number), so the generated name and structure are stable regardless of the order types appear in the spec.
+
+When serialisation is enabled, a `KSerializer` is also generated. See the [full primitive unions guide](https://diplodokode.developmentanddinosaurs.co.uk/primitive-unions/) for usage, naming recommendations, and alternatives.
