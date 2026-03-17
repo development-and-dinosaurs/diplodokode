@@ -31,7 +31,6 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
     fun generate(name: String, schema: Schema): FileSpec {
         val interfaceName = config.namingStrategy.className(name)
         val interfaceClassName = ClassName(config.packageName, interfaceName)
-        val serializerClassName = ClassName(config.packageName, "${interfaceName}Serializer")
 
         val variants = schema.oneOf!!
             .sortedBy { PRIMITIVE_DECODE_PRIORITY[it.type] ?: Int.MAX_VALUE }
@@ -45,6 +44,7 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
             .addSuperinterface(unionSuperInterface)
 
         if (config.serialisationStrategy != null) {
+            val serializerClassName = ClassName(config.packageName, "${interfaceName}Serializer")
             interfaceBuilder.addAnnotation(
                 AnnotationSpec.builder(ClassName(KOTLINX_SERIALIZATION, "Serializable"))
                     .addMember("with = %T::class", serializerClassName)
