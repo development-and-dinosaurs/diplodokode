@@ -13,6 +13,8 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         val spec = File("src/test/resources/primitive-union-property-api.yaml")
         val generator = DiplodokodeGenerator(GeneratorConfig())
         val files = generator.generateFromSpec(spec)
+        val code = files.find { it.name == "StringOrDouble" }!!.toString()
+        val dinosaurCode = files.find { it.name == "Dinosaur" }!!.toString()
 
         Then("a StringOrDouble file is generated") {
             files.any { it.name == "StringOrDouble" } shouldBe true
@@ -23,29 +25,24 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         }
 
         Then("the data class property uses StringOrDouble as its type") {
-            val dinosaurCode = files.find { it.name == "Dinosaur" }!!.toString()
             dinosaurCode shouldContain "val score: StringOrDouble?"
         }
 
         Then("the StringOrDouble file contains a sealed interface") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "sealed interface StringOrDouble"
         }
 
         Then("the StringOrDouble file contains value class wrappers for each variant") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "value class StringValue"
             code shouldContain "value class DoubleValue"
         }
 
         Then("the value classes hold the correct types") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "val `value`: String"
             code shouldContain "val `value`: Double"
         }
 
         Then("no serializer is generated when no serialisation strategy is configured") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldNotContain "Serializer"
         }
 
@@ -54,19 +51,16 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         }
 
         Then("StringOrDouble extends Union2<String, Double>") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "Union2<String, Double>"
         }
 
         Then("a fold function is generated inside StringOrDouble") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "override fun <R> fold"
             code shouldContain "is StringValue -> onFirst(value)"
             code shouldContain "is DoubleValue -> onSecond(value)"
         }
 
         Then("a companion object with invoke overloads is generated") {
-            val code = files.find { it.name == "StringOrDouble" }!!.toString()
             code shouldContain "companion object"
             code shouldContain "operator fun invoke"
         }
