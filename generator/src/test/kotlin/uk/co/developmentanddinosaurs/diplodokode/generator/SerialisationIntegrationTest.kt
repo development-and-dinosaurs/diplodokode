@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Brachiosaurus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
@@ -227,9 +228,10 @@ class SerialisationIntegrationTest : BehaviorSpec({
             unionCode shouldContain "is StringOrDouble.DoubleValue -> encoder.encodeDouble(value.value)"
         }
 
-        Then("the deserializer checks isString before falling back to Double") {
+        Then("the deserializer checks each variant condition and throws for unexpected values") {
             unionCode shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
-            unionCode shouldContain "else -> StringOrDouble.DoubleValue(element.content.toDouble())"
+            unionCode shouldContain "!element.isString && element.content.toDoubleOrNull() != null -> StringOrDouble.DoubleValue(element.content.toDouble())"
+            unionCode shouldContain "else -> throw SerializationException"
         }
 
         Then("only one StringOrDouble file is generated when two schemas share the union type") {
@@ -283,6 +285,14 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
             Then("the score is null") {
                 decoded.score shouldBe null
+            }
+        }
+
+        When("a JSON payload with a value that matches no variant is decoded") {
+            val result = runCatching { json.decodeFromString<Stegosaurus>("""{"name":"Steggy","score":true}""") }
+
+            Then("a SerializationException is thrown rather than NumberFormatException") {
+                (result.exceptionOrNull() is SerializationException) shouldBe true
             }
         }
 

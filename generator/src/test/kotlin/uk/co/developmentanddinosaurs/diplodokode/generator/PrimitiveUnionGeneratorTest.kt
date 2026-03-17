@@ -92,7 +92,8 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         Then("the deserialize function reads a JsonElement and dispatches by primitive type") {
             code shouldContain "JsonDecoder"
             code shouldContain "element.isString -> StringOrDouble.StringValue(element.content)"
-            code shouldContain "else -> StringOrDouble.DoubleValue(element.content.toDouble())"
+            code shouldContain "!element.isString && element.content.toDoubleOrNull() != null -> StringOrDouble.DoubleValue(element.content.toDouble())"
+            code shouldContain "else -> throw SerializationException"
         }
     }
 
@@ -276,7 +277,8 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
                 code shouldContain "element.isString -> StringOrBooleanOrIntOrDouble.StringValue(element.content)"
                 code shouldContain "!element.isString && element.content.toBooleanStrictOrNull() != null -> StringOrBooleanOrIntOrDouble.BooleanValue(element.content.toBooleanStrict())"
                 code shouldContain "!element.isString && element.content.toIntOrNull() != null -> StringOrBooleanOrIntOrDouble.IntValue(element.content.toInt())"
-                code shouldContain "else -> StringOrBooleanOrIntOrDouble.DoubleValue(element.content.toDouble())"
+                code shouldContain "!element.isString && element.content.toDoubleOrNull() != null -> StringOrBooleanOrIntOrDouble.DoubleValue(element.content.toDouble())"
+                code shouldContain "else -> throw SerializationException"
             }
 
             Then("the serializer handles all four variants") {

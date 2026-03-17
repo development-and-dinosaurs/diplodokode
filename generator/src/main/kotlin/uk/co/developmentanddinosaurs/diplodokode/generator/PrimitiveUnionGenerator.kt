@@ -191,7 +191,7 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
             "Expected a primitive value for $interfaceName",
         )
         code.beginControlFlow("return when")
-        variants.dropLast(1).forEach { variant ->
+        variants.forEach { variant ->
             code.addStatement(
                 "%L -> %T.%L(element.%L)",
                 variant.decodeCondition,
@@ -200,12 +200,9 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
                 variant.decodeExtract,
             )
         }
-        val last = variants.last()
         code.addStatement(
-            "else -> %T.%L(element.%L)",
-            interfaceClassName,
-            last.wrapperName,
-            last.decodeExtract,
+            "else -> throw %T(\"Unexpected value for $interfaceName: \" + element.content)",
+            serializationExceptionType,
         )
         code.endControlFlow()
 

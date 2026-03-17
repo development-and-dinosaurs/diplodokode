@@ -76,7 +76,8 @@ object StringOrDoubleSerializer : KSerializer<StringOrDouble> {
         if (element !is JsonPrimitive) throw SerializationException("Expected a primitive value for StringOrDouble")
         return when {
             element.isString -> StringOrDouble.StringValue(element.content)
-            else -> StringOrDouble.DoubleValue(element.content.toDouble())
+            !element.isString && element.content.toDoubleOrNull() != null -> StringOrDouble.DoubleValue(element.content.toDouble())
+            else -> throw SerializationException("Unexpected value for StringOrDouble: " + element.content)
         }
     }
 }
