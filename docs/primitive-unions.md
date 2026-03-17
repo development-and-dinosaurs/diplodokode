@@ -23,8 +23,8 @@ components:
 
     LengthEstimate:
       oneOf:
-        - type: number
         - type: string
+        - type: number
 ```
 
 The issue is that the primitive Double and String values in Kotlin don't share a common ancestor.
@@ -38,18 +38,18 @@ Well, they do. But that common ancestor is `Any?`, which loses all type informat
 For the `LengthEstimate` schema above, Diplodokode produces:
 
 ```kotlin
-sealed interface LengthEstimate : Union2<Double, String> {
-    @JvmInline value class DoubleValue(val value: Double) : LengthEstimate
+sealed interface LengthEstimate : Union2<String, Double> {
     @JvmInline value class StringValue(val value: String) : LengthEstimate
+    @JvmInline value class DoubleValue(val value: Double) : LengthEstimate
 
-    override fun <R> fold(onFirst: (Double) -> R, onSecond: (String) -> R): R = when (this) {
-        is DoubleValue -> onFirst(value)
-        is StringValue -> onSecond(value)
+    override fun <R> fold(onFirst: (String) -> R, onSecond: (Double) -> R): R = when (this) {
+        is StringValue -> onFirst(value)
+        is DoubleValue -> onSecond(value)
     }
 
     companion object {
-        operator fun invoke(value: Double): LengthEstimate = DoubleValue(value)
         operator fun invoke(value: String): LengthEstimate = StringValue(value)
+        operator fun invoke(value: Double): LengthEstimate = DoubleValue(value)
     }
 }
 ```
@@ -58,7 +58,7 @@ And when serialisation is enabled:
 
 ```kotlin
 @Serializable(with = LengthEstimateSerializer::class)
-sealed interface LengthEstimate : Union2<Double, String> { ... }
+sealed interface LengthEstimate : Union2<String, Double> { ... }
 
 object LengthEstimateSerializer : KSerializer<LengthEstimate> { ... }
 ```
@@ -115,7 +115,7 @@ val text: String? = fossil.lengthEstimate?.secondOrNull()     // null if it's a 
 The non-nullable variants `first()` / `second()` throw if the value is not that variant:
 
 ```kotlin
-val numeric: Double = fossil.lengthEstimate.first()   // throws if it's a string
+val numeric: Double = fossil.lengthEstimate!!.first()   // throws if it's a string
 ```
 
 ### The Union interfaces
@@ -163,8 +163,8 @@ components:
   schemas:
     LengthEstimate:
       oneOf:
-        - type: number
         - type: string
+        - type: number
 
     Fossil:
       type: object
