@@ -66,7 +66,7 @@ object LengthEstimateSerializer : KSerializer<LengthEstimate> { ... }
 The serializer uses `JsonDecoder` to inspect the raw JSON element and dispatch to the correct variant. Serialisation must be configured to generate the serializer — see [Serialisation](serialisation.md).
 
 !!! warning "JSON only"
-    The generated serializer depends on `JsonDecoder` and only works with `kotlinx.serialization.json.Json`. Other formats (CBOR, Protobuf, YAML) are not supported for primitive union types.
+    The generated serializer depends on `JsonDecoder` and only works with `kotlinx.serialization.json.Json`. Attempting to use another format (CBOR, Protobuf, YAML) throws `SerializationException("Primitive union types only support JSON deserialization")`.
 
 !!! note "@JvmInline and boxing"
     Value class wrappers are erased on the JVM when used as their concrete type — `DoubleValue` compiles down to a plain `Double` with no extra allocation. However, when held as the sealed interface type (which is the common case here), the JVM requires a real object reference and boxing occurs at that boundary. The `@JvmInline` annotation is still the right choice — it signals intent, avoids redundant object creation where the concrete type is used directly, and is the idiomatic Kotlin pattern — but it does not eliminate allocations entirely in this use case.
@@ -108,14 +108,14 @@ This is exhaustive by construction — the compiler enforces that both branches 
 The `Union` interfaces provide `firstOrNull()` / `secondOrNull()` (and so on for higher arities) for when you only care about one specific variant:
 
 ```kotlin
-val numeric: Double? = fossil.lengthEstimate?.firstOrNull()   // null if it's a string
-val text: String? = fossil.lengthEstimate?.secondOrNull()     // null if it's a number
+val text: String? = fossil.lengthEstimate?.firstOrNull()    // null if it's a number
+val numeric: Double? = fossil.lengthEstimate?.secondOrNull() // null if it's a string
 ```
 
 The non-nullable variants `first()` / `second()` throw if the value is not that variant:
 
 ```kotlin
-val numeric: Double = fossil.lengthEstimate!!.first()   // throws if it's a string
+val text: String = fossil.lengthEstimate!!.first()   // throws if it's a number
 ```
 
 ### The Union interfaces
@@ -128,11 +128,11 @@ Every generated primitive union extends one of the generic `Union` interfaces, d
 | 3        | `Union3<A, B, C>`    |
 | 4        | `Union4<A, B, C, D>` |
 
-These interfaces are generated alongside your models. Because `LengthEstimate` extends `Union2<Double, String>`, utility code can accept the abstract interface without knowing the concrete type name:
+These interfaces are generated into a `unions` sub-package alongside your models — e.g. `uk.co.developmentanddinosaurs.diplodokode.generated.unions`. Because `LengthEstimate` extends `Union2<String, Double>`, utility code can accept the abstract interface without knowing the concrete type name:
 
 ```kotlin
-fun formatMeasurement(m: Union2<Double, String>): String =
-    m.fold(onFirst = { "$it metres" }, onSecond = { it })
+fun formatMeasurement(m: Union2<String, Double>): String =
+    m.fold(onFirst = { it }, onSecond = { "$it metres" })
 ```
 
 ---
