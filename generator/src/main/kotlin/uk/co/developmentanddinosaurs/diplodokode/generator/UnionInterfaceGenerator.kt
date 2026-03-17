@@ -53,7 +53,7 @@ internal class UnionInterfaceGenerator(private val config: GeneratorConfig) {
             )
         }
 
-        return FileSpec.builder(config.packageName, typeName)
+        return FileSpec.builder("${config.packageName}.unions", typeName)
             .addType(interfaceBuilder.build())
             .build()
     }

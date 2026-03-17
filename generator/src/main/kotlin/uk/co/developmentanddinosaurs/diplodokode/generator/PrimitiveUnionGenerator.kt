@@ -37,7 +37,7 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
             .distinctBy { it.type }
             .mapNotNull { variantInfoFor(it.type, config.typeMappingStrategy) }
 
-        val unionSuperInterface = ClassName(config.packageName, "Union${variants.size}")
+        val unionSuperInterface = ClassName("${config.packageName}.unions", "Union${variants.size}")
             .parameterizedBy(*variants.map { it.kotlinType }.toTypedArray())
 
         val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
