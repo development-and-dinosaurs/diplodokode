@@ -10,8 +10,10 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diet
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Diplodocus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Dinosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Sauropod
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Pterodactyl
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Stegosaurus
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.StringOrDouble
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.TagValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.sauropodModule
 import java.io.File
@@ -356,6 +358,71 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
         Then("second on a StringValue throws") {
             runCatching { StringOrDouble("hello").second() }.isFailure shouldBe true
+        }
+    }
+
+    Given("a Pterodactyl with a TagValue (string|boolean|integer) fixture") {
+        When("a Pterodactyl with a string tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue("herbivore"))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON string") {
+                encoded shouldContain """"tag":"herbivore""""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a Pterodactyl with a boolean tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue(true))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON boolean") {
+                encoded shouldContain """"tag":true"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a Pterodactyl with an integer tag is encoded") {
+            val pterodactyl = Pterodactyl(name = "Pterry", tag = TagValue(42))
+            val encoded = json.encodeToString(pterodactyl)
+
+            Then("the tag field appears as a JSON number") {
+                encoded shouldContain """"tag":42"""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                json.decodeFromString<Pterodactyl>(encoded) shouldBe pterodactyl
+            }
+        }
+
+        When("a JSON payload with a string tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":"herbivore"}""")
+
+            Then("the tag is a StringValue") {
+                decoded.tag shouldBe TagValue.StringValue("herbivore")
+            }
+        }
+
+        When("a JSON payload with a boolean tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":true}""")
+
+            Then("the tag is a BooleanValue") {
+                decoded.tag shouldBe TagValue.BooleanValue(true)
+            }
+        }
+
+        When("a JSON payload with an integer tag is decoded") {
+            val decoded = json.decodeFromString<Pterodactyl>("""{"name":"Pterry","tag":42}""")
+
+            Then("the tag is an IntValue") {
+                decoded.tag shouldBe TagValue.IntValue(42)
+            }
         }
     }
 
