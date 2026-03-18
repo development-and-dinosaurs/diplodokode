@@ -66,6 +66,15 @@ class NamingStrategyTest : BehaviorSpec({
       Then("it handles values that are already uppercase") {
         strategy.enumConstant("ACTIVE") shouldBe "ACTIVE"
       }
+      Then("it splits PascalCase values into SCREAMING_SNAKE_CASE") {
+        strategy.enumConstant("DinosaurType") shouldBe "DINOSAUR_TYPE"
+      }
+      Then("it splits camelCase values into SCREAMING_SNAKE_CASE") {
+        strategy.enumConstant("dinosaurType") shouldBe "DINOSAUR_TYPE"
+      }
+      Then("it handles consecutive uppercase letters correctly") {
+        strategy.enumConstant("XMLParser") shouldBe "XML_PARSER"
+      }
     }
   }
 

@@ -8,9 +8,13 @@ interface NamingStrategy {
 
 private val SEPARATOR_REGEX = Regex("[^A-Za-z0-9]+")
 private val INVALID_IDENTIFIER_REGEX = Regex("[^A-Za-z0-9_]")
+private val CAMEL_CASE_REGEX = Regex("(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 private fun splitWords(specName: String): List<String> =
     specName.split(SEPARATOR_REGEX).filter { it.isNotEmpty() }
+
+private fun splitConstantWords(specName: String): List<String> =
+    splitWords(specName).flatMap { it.split(CAMEL_CASE_REGEX) }.filter { it.isNotEmpty() }
 
 private fun prefixIfDigitLeading(name: String): String =
     if (name.isNotEmpty() && name.first().isDigit()) "_$name" else name
@@ -33,8 +37,9 @@ class DefaultNamingStrategy : NamingStrategy {
   }
 
   override fun enumConstant(specValue: String): String {
-    val sanitised = specValue.replace(INVALID_IDENTIFIER_REGEX, "_").uppercase()
-    return prefixIfDigitLeading(sanitised.ifEmpty { "_" })
+    val words = splitConstantWords(specValue)
+    val result = if (words.isEmpty()) "_" else words.joinToString("_") { it.uppercase() }
+    return prefixIfDigitLeading(result)
   }
 }
 
