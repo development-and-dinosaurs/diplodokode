@@ -43,6 +43,7 @@ internal class PrimitiveUnionGenerator(private val config: GeneratorConfig) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
             .addModifiers(KModifier.SEALED)
             .addSuperinterface(unionSuperInterface)
+            .also { builder -> schema.description?.let { builder.addKdoc("$it\n") } }
 
         if (config.serialisationStrategy != null) {
             val serializerClassName = ClassName(config.packageName, "${interfaceName}Serializer")

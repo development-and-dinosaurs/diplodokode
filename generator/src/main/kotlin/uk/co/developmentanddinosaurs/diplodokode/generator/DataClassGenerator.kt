@@ -67,6 +67,7 @@ internal class DataClassGenerator(
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)
         .also { builder ->
+          schema.description?.let { builder.addKdoc("$it\n") }
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
