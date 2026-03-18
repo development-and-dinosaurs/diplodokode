@@ -62,9 +62,17 @@ class DinosaurGeneratorTest : BehaviorSpec({
         dietFile.toString() shouldContain "enum class Diet"
       }
 
+      Then("it should emit the schema description as KDoc on the enum class") {
+        generatedFiles.find { it.name == "Diet" }!!.toString() shouldContain "The diet of a dinosaur"
+      }
+
       Then("it should resolve the \$ref to the correct Kotlin type") {
         val dinosaurFile = generatedFiles.find { it.name == "Dinosaur" }!!
         dinosaurFile.toString() shouldContain "val diet: Diet"
+      }
+
+      Then("it should emit the schema description as KDoc on the data class") {
+        generatedFiles.find { it.name == "Dinosaur" }!!.toString() shouldContain "A magnificent dinosaur"
       }
     }
   }

@@ -7,6 +7,7 @@ components:
   schemas:
     Dinosaur:
       type: object
+      description: A magnificent dinosaur
       required:
         - name
         - diet
@@ -21,6 +22,7 @@ components:
           description: The name of the dinosaur's favourite prey
     Diet:
       type: string
+      description: The diet of a dinosaur
       enum:
         - carnivore
         - herbivore

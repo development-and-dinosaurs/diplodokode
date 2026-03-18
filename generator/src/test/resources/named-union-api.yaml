@@ -5,6 +5,7 @@ info:
 components:
   schemas:
     MeasurementValue:
+      description: A measurement expressed as a number or a descriptive string
       oneOf:
         - type: string
         - type: number

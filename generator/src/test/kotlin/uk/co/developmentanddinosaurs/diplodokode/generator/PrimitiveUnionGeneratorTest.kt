@@ -144,6 +144,11 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
             files.any { it.name == "MeasurementValue" } shouldBe true
         }
 
+        Then("the schema description is emitted as KDoc on MeasurementValue") {
+            files.find { it.name == "MeasurementValue" }!!.toString() shouldContain
+                "A measurement expressed as a number or a descriptive string"
+        }
+
         Then("MeasurementValue is a sealed interface extending Union2<String, Double>") {
             val code = files.find { it.name == "MeasurementValue" }!!.toString()
             code shouldContain "sealed interface MeasurementValue"

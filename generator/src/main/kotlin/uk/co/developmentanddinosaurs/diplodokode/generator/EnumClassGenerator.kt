@@ -6,8 +6,9 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 internal class EnumClassGenerator(private val config: GeneratorConfig) {
 
-  fun generateEnumClass(name: String, values: List<String>): TypeSpec {
+  fun generateEnumClass(name: String, values: List<String>, description: String? = null): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
+    description?.let { enumBuilder.addKdoc("$it\n") }
     config.serialisationStrategy?.let { enumBuilder.addAnnotation(it.classAnnotation) }
     values.forEach { rawValue ->
       val kotlinName = config.namingStrategy.enumConstant(rawValue)
@@ -24,7 +25,7 @@ internal class EnumClassGenerator(private val config: GeneratorConfig) {
   fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
     val enumName = config.namingStrategy.className(name)
     return FileSpec.builder(config.packageName, enumName)
-        .addType(generateEnumClass(enumName, schema.enum ?: emptyList()))
+        .addType(generateEnumClass(enumName, schema.enum ?: emptyList(), schema.description))
         .build()
   }
 }
