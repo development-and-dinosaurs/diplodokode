@@ -193,6 +193,25 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a uri-format string property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("homepage" to Schema(type = "string", format = "uri")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Dinosaur", schema).toString()
+
+      Then("the property type is String") {
+        code shouldContain "val homepage: String"
+      }
+
+      Then("a KDoc note explains the uri-to-String mapping") {
+        code shouldContain "format is 'uri'; represented as String"
+      }
+    }
+  }
+
   Given("a schema with an array property that has no items schema") {
     val schema = Schema(
       type = "object",

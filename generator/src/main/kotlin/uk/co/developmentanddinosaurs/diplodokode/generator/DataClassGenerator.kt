@@ -220,6 +220,9 @@ internal class DataClassGenerator(
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
     propValue.description?.let { builder.addKdoc("$it\n") }
+    if (propValue.format == "uri") {
+      builder.addKdoc("NOTE: format is 'uri'; represented as String (no KMP-safe URI type). See README for alternatives.\n")
+    }
     if (propValue.type == "array" && propValue.items == null) {
       builder.addKdoc("NOTE: no 'items' schema defined — type is List<Any>. Add an 'items' schema for a typed list.\n")
     }
