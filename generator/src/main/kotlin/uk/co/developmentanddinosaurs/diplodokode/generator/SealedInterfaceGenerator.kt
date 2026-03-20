@@ -62,7 +62,7 @@ internal class SealedInterfaceGenerator(
       schema: Schema,
   ) {
     when {
-      discriminatorEnum != null && !useSerialisedDiscriminator -> addTypeEnum(interfaceBuilder, interfaceName, discriminatorEnum)
+      discriminatorEnum != null && !useSerialisedDiscriminator -> addTypeEnum(interfaceBuilder, interfaceName, discriminatorEnum, schema)
       discriminatorEnum != null -> addSerialisedDiscriminator(interfaceBuilder, discriminatorEnum)
       else -> addFallbackDiscriminator(interfaceBuilder, schema)
     }
@@ -72,7 +72,12 @@ internal class SealedInterfaceGenerator(
       interfaceBuilder: TypeSpec.Builder,
       interfaceName: String,
       discriminatorEnum: DiscriminatorEnum,
+      schema: Schema,
   ) {
+    if (discriminatorEnum.constants.isEmpty()) {
+      addFallbackDiscriminator(interfaceBuilder, schema)
+      return
+    }
     val enumType = ClassName(config.packageName, interfaceName, "Type")
     val enumBuilder = TypeSpec.enumBuilder("Type")
     discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }

@@ -252,4 +252,24 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a discriminator enum with no constants (empty constants list)") {
+    val schema = Schema(
+      oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+      discriminator = Discriminator("type"),
+    )
+    val emptyDiscriminatorEnum = DiscriminatorEnum("type", emptyList())
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", emptyDiscriminatorEnum).toString()
+
+      Then("no empty enum class Type is emitted") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("the fallback abstract discriminator property is emitted instead") {
+        code shouldContain "abstract val type: String"
+      }
+    }
+  }
 })
