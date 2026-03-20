@@ -3,6 +3,7 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class DataClassGeneratorTest : BehaviorSpec({
@@ -188,6 +189,57 @@ class DataClassGeneratorTest : BehaviorSpec({
 
       Then("a @SerialName annotation maps back to the spec name") {
         code shouldContain """@SerialName("arm_length")"""
+      }
+    }
+  }
+
+  Given("a schema with additionalProperties: false at the schema level") {
+    val schema = Schema(
+      type = "object",
+      additionalProperties = AdditionalProperties.Forbidden,
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the named property is still emitted") {
+        code shouldContain "val name: String"
+      }
+
+      Then("no Map property is generated") {
+        code shouldNotContain "Map<"
+      }
+
+      Then("a KDoc note states additional properties are forbidden") {
+        code shouldContain "additional properties are forbidden by the OpenAPI spec"
+      }
+    }
+  }
+
+  Given("a schema where a property has additionalProperties: false") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "metadata" to Schema(additionalProperties = AdditionalProperties.Forbidden),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the forbidden-additional-properties property is not emitted") {
+        code shouldNotContain "metadata"
+        code shouldNotContain "Map<"
+      }
+
+      Then("a KDoc note states additional properties are forbidden") {
+        code shouldContain "additional properties are forbidden by the OpenAPI spec"
+      }
+
+      Then("the regular property is still emitted") {
+        code shouldContain "val name: String"
       }
     }
   }

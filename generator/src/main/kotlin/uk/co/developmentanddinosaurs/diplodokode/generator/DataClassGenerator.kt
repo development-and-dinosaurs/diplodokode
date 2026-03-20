@@ -11,6 +11,7 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
@@ -39,13 +40,19 @@ internal class DataClassGenerator(
     val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)
 
     val constructorParams = schema.properties?.entries
-        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.filter { (propName, propValue) ->
+          !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) &&
+              propValue.additionalProperties !is AdditionalProperties.Forbidden
+        }
         ?.map { (propName, propValue) ->
           buildConstructorParam(propName, propValue, required, discriminatorOverride, enumClassNames)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
-        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.filter { (propName, propValue) ->
+          !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) &&
+              propValue.additionalProperties !is AdditionalProperties.Forbidden
+        }
         ?.map { (propName, propValue) ->
           buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
@@ -64,10 +71,16 @@ internal class DataClassGenerator(
       )
     }
 
+    val hasForbiddenAdditionalProperties = schema.additionalProperties is AdditionalProperties.Forbidden ||
+        schema.properties?.values?.any { it.additionalProperties is AdditionalProperties.Forbidden } == true
+
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)
         .also { builder ->
           schema.description?.let { builder.addKdoc("$it\n") }
+          if (hasForbiddenAdditionalProperties) {
+            builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
+          }
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
