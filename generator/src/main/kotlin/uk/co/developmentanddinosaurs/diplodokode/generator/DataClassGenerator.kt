@@ -15,6 +15,10 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalPro
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
+private const val JAVA_TIME = "java.time"
+private const val KOTLIN_UUID = "kotlin.uuid"
+private const val KOTLINX_DATETIME = "kotlinx.datetime"
+
 internal class DataClassGenerator(
     private val config: GeneratorConfig,
     private val typeResolver: TypeResolver,
@@ -65,7 +69,7 @@ internal class DataClassGenerator(
     if (allTypes.any { typeResolver.containsKotlinUuid(it) }) {
       fileBuilder.addAnnotation(
           AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
+              .addMember("%T::class", ClassName(KOTLIN_UUID, "ExperimentalUuidApi"))
               .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
               .build()
       )
@@ -220,6 +224,13 @@ internal class DataClassGenerator(
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
     propValue.description?.let { builder.addKdoc("$it\n") }
+    val baseKotlinType = kotlinType.copy(nullable = false)
+    val strDefault = propValue.default as? DefaultValue.Str
+    if (strDefault != null && enumClassNames[propName] == null &&
+        baseKotlinType != String::class.asTypeName() && parseableDefaults[baseKotlinType] == null) {
+      val typeName = baseKotlinType.toString().substringAfterLast(".")
+      builder.addKdoc("NOTE: default value '${strDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
+    }
     if (propValue.format == "uri") {
       builder.addKdoc("NOTE: format is 'uri'; represented as String (no KMP-safe URI type). See README for alternatives.\n")
     }
@@ -245,16 +256,36 @@ internal class DataClassGenerator(
         enumClassName != null -> CodeBlock.of(
             "%T.%L", enumClassName, config.namingStrategy.enumConstant(default.value)
         )
-        else -> CodeBlock.of("%S", default.value)
+        baseType == String::class.asTypeName() -> CodeBlock.of("%S", default.value)
+        else -> parseableDefaults[baseType]?.invoke(default.value)
       }
       is DefaultValue.Num -> when (baseType) {
         Long::class.asTypeName() -> CodeBlock.of("%LL", default.value.toLong())
         Float::class.asTypeName() -> CodeBlock.of("%Lf", default.value.toFloat())
         Int::class.asTypeName() -> CodeBlock.of("%L", default.value.toInt())
         Double::class.asTypeName() -> CodeBlock.of("%L", default.value.toDouble())
-        else -> null
+        else -> CodeBlock.of("%L", default.value.toDouble())
       }
     }
+  }
+
+  companion object {
+    private fun parseCall(type: ClassName) = { v: String -> CodeBlock.of("%T.parse(%S)", type, v) }
+
+    val parseableDefaults: Map<TypeName, (String) -> CodeBlock> = mapOf(
+        ClassName(KOTLINX_DATETIME, "Instant")  to parseCall(ClassName(KOTLINX_DATETIME, "Instant")),
+        ClassName(KOTLINX_DATETIME, "LocalDate") to parseCall(ClassName(KOTLINX_DATETIME, "LocalDate")),
+        ClassName(KOTLINX_DATETIME, "LocalTime") to parseCall(ClassName(KOTLINX_DATETIME, "LocalTime")),
+        ClassName("kotlin.time", "Duration")       to parseCall(ClassName("kotlin.time", "Duration")),
+        ClassName(KOTLIN_UUID, "Uuid")           to parseCall(ClassName(KOTLIN_UUID, "Uuid")),
+        ClassName(JAVA_TIME, "Instant")          to parseCall(ClassName(JAVA_TIME, "Instant")),
+        ClassName(JAVA_TIME, "LocalDate")        to parseCall(ClassName(JAVA_TIME, "LocalDate")),
+        ClassName(JAVA_TIME, "LocalTime")        to parseCall(ClassName(JAVA_TIME, "LocalTime")),
+        ClassName(JAVA_TIME, "Duration")         to parseCall(ClassName(JAVA_TIME, "Duration")),
+        ClassName("java.util", "UUID")             to { v -> CodeBlock.of("%T.fromString(%S)", ClassName("java.util", "UUID"), v) },
+        ClassName("java.net", "URI")               to { v -> CodeBlock.of("%T(%S)", ClassName("java.net", "URI"), v) },
+        ByteArray::class.asTypeName()              to { v -> CodeBlock.of("%S.toByteArray()", v) },
+    )
   }
 
   private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {

@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class DataClassGeneratorTest : BehaviorSpec({
@@ -189,6 +190,64 @@ class DataClassGeneratorTest : BehaviorSpec({
 
       Then("a @SerialName annotation maps back to the spec name") {
         code shouldContain """@SerialName("arm_length")"""
+      }
+    }
+  }
+
+  Given("a schema where a date-time property has a default value") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "createdAt" to Schema(type = "string", format = "date-time", default = DefaultValue.Str("2024-01-01T00:00:00Z")),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("no raw string literal default is emitted") {
+        code shouldNotContain "= \"2024-01-01T00:00:00Z\""
+      }
+
+      Then("a parse call is emitted as the default") {
+        code shouldContain "Instant.parse(\"2024-01-01T00:00:00Z\")"
+      }
+    }
+  }
+
+  Given("a schema where a byte-format property has a default value") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "data" to Schema(type = "string", format = "byte", default = DefaultValue.Str("aGVsbG8=")),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("a toByteArray() call is emitted as the default") {
+        code shouldContain "\"aGVsbG8=\".toByteArray()"
+      }
+    }
+  }
+
+  Given("a schema with a custom numeric type and a numeric default") {
+    val customConfig = GeneratorConfig(
+      typeMappingStrategy = CustomTypeMappingStrategy(
+        baseMappings = mapOf("number" to com.squareup.kotlinpoet.ClassName("java.math", "BigDecimal")),
+      ),
+    )
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("weight" to Schema(type = "number", default = DefaultValue.Num(42.5))),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator(customConfig).generate("Dinosaur", schema).toString()
+
+      Then("a numeric default is emitted as a double literal fallback") {
+        code shouldContain "= 42.5"
       }
     }
   }
