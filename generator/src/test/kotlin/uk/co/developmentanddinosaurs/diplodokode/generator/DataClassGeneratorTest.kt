@@ -193,6 +193,25 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with an array property that has no items schema") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("bones" to Schema(type = "array")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the property type is List<Any>") {
+        code shouldContain "val bones: List<Any>"
+      }
+
+      Then("a KDoc note warns about missing items schema") {
+        code shouldContain "no 'items' schema defined"
+      }
+    }
+  }
+
   Given("a schema with additionalProperties: false at the schema level") {
     val schema = Schema(
       type = "object",

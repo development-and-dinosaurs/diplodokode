@@ -220,6 +220,9 @@ internal class DataClassGenerator(
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
     propValue.description?.let { builder.addKdoc("$it\n") }
+    if (propValue.type == "array" && propValue.items == null) {
+      builder.addKdoc("NOTE: no 'items' schema defined — type is List<Any>. Add an 'items' schema for a typed list.\n")
+    }
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
