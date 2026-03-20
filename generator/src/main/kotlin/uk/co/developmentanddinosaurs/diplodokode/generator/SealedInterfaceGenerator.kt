@@ -39,8 +39,13 @@ internal class SealedInterfaceGenerator(
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
     addAbstractProperties(interfaceBuilder, schema, discriminatorPropName)
 
-    if (variants.any { it.ref == null }) {
-      interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
+    variants.filter { it.ref == null }.forEach { variant ->
+      if (variant.properties.isNullOrEmpty()) {
+        interfaceBuilder.addKdoc("NOTE: An inline $keyword variant with no properties is not supported. Define it as a \$ref schema.\n")
+      } else {
+        val propertyList = variant.properties.entries.joinToString(", ") { (k, v) -> "$k: ${v.type ?: "unknown"}" }
+        interfaceBuilder.addKdoc("NOTE: Inline $keyword variant with properties [$propertyList] is not supported as a named type. Refactor to a \$ref schema.\n")
+      }
     }
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)

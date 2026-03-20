@@ -481,8 +481,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a sealed interface") {
       val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
-      Then("it should emit a KDoc note about unsupported inline variants") {
-        code shouldContain "NOTE: Inline oneOf variants are not supported"
+      Then("it should emit a KDoc note about unsupported inline variants including property shapes") {
+        code shouldContain "Inline oneOf variant with properties [armLength: number] is not supported as a named type. Refactor to a \$ref schema."
       }
     }
   }
