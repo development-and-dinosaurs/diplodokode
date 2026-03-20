@@ -20,7 +20,7 @@ data class ResolvedSpec(
   val schemas: Map<String, Schema>,
   val implementedInterfaces: Map<String, List<String>>,
   val discriminatorEnums: Map<String, DiscriminatorEnum>,
-  val discriminatorOverrides: Map<String, DiscriminatorOverride>,
+  val discriminatorOverrides: Map<String, List<DiscriminatorOverride>>,
   val interfacePropertyNames: Map<String, Set<String>>,
 )
 
@@ -82,10 +82,10 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
   private fun buildDiscriminatorMaps(
       rawSchemas: Map<String, Schema>,
       flatSchemas: Map<String, Schema>,
-  ): Triple<Map<String, List<String>>, Map<String, DiscriminatorEnum>, Map<String, DiscriminatorOverride>> {
+  ): Triple<Map<String, List<String>>, Map<String, DiscriminatorEnum>, Map<String, List<DiscriminatorOverride>>> {
     val interfaceMap = mutableMapOf<String, MutableList<String>>()
     val enumMap = mutableMapOf<String, DiscriminatorEnum>()
-    val overrideMap = mutableMapOf<String, DiscriminatorOverride>()
+    val overrideMap = mutableMapOf<String, MutableList<DiscriminatorOverride>>()
 
     rawSchemas.forEach { (interfaceName, schema) ->
       val variants = schema.oneOf ?: schema.anyOf ?: return@forEach
@@ -117,7 +117,9 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       // abstract val prop: String in that case.
       if (constants.size == refVariants.size && constants.isNotEmpty()) {
         enumMap[interfaceName] = DiscriminatorEnum(discriminator.propertyName, constants, rawValues)
-        overrideMap.putAll(stagedOverrides)
+        stagedOverrides.forEach { (variantName, override) ->
+          overrideMap.getOrPut(variantName) { mutableListOf() }.add(override)
+        }
       }
     }
 

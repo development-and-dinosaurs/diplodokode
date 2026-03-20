@@ -40,6 +40,45 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a variant that belongs to two discriminated sealed hierarchies") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("dinosaurType", "predatorType", "name"),
+      properties = mapOf(
+        "dinosaurType" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "predatorType" to Schema(type = "string", enum = listOf("biped")),
+        "name" to Schema(type = "string"),
+      ),
+    )
+    val overrides = listOf(
+      DiscriminatorOverride("Dinosaur", "dinosaurType", "TYRANNOSAUR", "tyrannosaur"),
+      DiscriminatorOverride("Predator", "predatorType", "BIPED", "biped"),
+    )
+
+    When("the generator produces the variant data class") {
+      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur", "Predator"), discriminatorOverrides = overrides).toString()
+
+      Then("the first discriminator property is an override with its default") {
+        code shouldContain "override val dinosaurType: Dinosaur.Type"
+        code shouldContain "Dinosaur.Type.TYRANNOSAUR"
+      }
+
+      Then("the second discriminator property is also an override with its default") {
+        code shouldContain "override val predatorType: Predator.Type"
+        code shouldContain "Predator.Type.BIPED"
+      }
+
+      Then("the regular property is still generated") {
+        code shouldContain "val name: String"
+      }
+
+      Then("no inline enum classes are generated for the discriminator properties") {
+        code shouldNotContain "enum class DinosaurType"
+        code shouldNotContain "enum class PredatorType"
+      }
+    }
+  }
+
   Given("a data class with a discriminator override, without serialisation") {
     val schema = Schema(
       type = "object",
@@ -52,7 +91,7 @@ class DataClassGeneratorTest : BehaviorSpec({
     val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
 
     When("the generator produces the variant data class") {
-      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the discriminator property is an override with a default value") {
         code shouldContain "override val type: Dinosaur.Type"
@@ -82,7 +121,7 @@ class DataClassGeneratorTest : BehaviorSpec({
     val config = GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy)
 
     When("the generator produces the variant data class") {
-      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the class is annotated with @SerialName for the discriminator value") {
         code shouldContain """@SerialName("tyrannosaur")"""

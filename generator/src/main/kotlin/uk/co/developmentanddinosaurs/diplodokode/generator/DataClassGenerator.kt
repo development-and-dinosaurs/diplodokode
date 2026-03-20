@@ -29,40 +29,42 @@ internal class DataClassGenerator(
       name: String,
       schema: Schema,
       implementedInterfaces: List<String> = emptyList(),
-      discriminatorOverride: DiscriminatorOverride? = null,
+      discriminatorOverrides: List<DiscriminatorOverride> = emptyList(),
       interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    val serialiseDiscriminator = discriminatorOverride != null && when (config.polymorphismStrategy) {
-      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorOverride.propertyName) != null
+    val serialiseDiscriminator = discriminatorOverrides.isNotEmpty() && when (config.polymorphismStrategy) {
+      PolymorphismStrategy.ANNOTATION -> discriminatorOverrides.any {
+        config.serialisationStrategy?.discriminatorAnnotation(it.propertyName) != null
+      }
       PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
     }
     val required = schema.required?.toSet() ?: emptySet()
 
-    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)
+    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverrides, interfacePropertyNames, fileBuilder)
 
     val constructorParams = schema.properties?.entries
         ?.filter { (propName, propValue) ->
-          !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) &&
+          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName }) &&
               propValue.additionalProperties !is AdditionalProperties.Forbidden
         }
         ?.map { (propName, propValue) ->
-          buildConstructorParam(propName, propValue, required, discriminatorOverride, enumClassNames)
+          buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
         ?.filter { (propName, propValue) ->
-          !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) &&
+          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName }) &&
               propValue.additionalProperties !is AdditionalProperties.Forbidden
         }
         ?.map { (propName, propValue) ->
-          buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
+          buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
 
     if (constructorParams.isEmpty()) {
-      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverride)
+      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverrides)
     }
 
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
@@ -88,7 +90,9 @@ internal class DataClassGenerator(
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              strategy.variantAnnotation(discriminatorOverride.rawValue)?.let { builder.addAnnotation(it) }
+              discriminatorOverrides.firstOrNull()?.let { override ->
+                strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
+              }
             }
           }
         }
@@ -107,7 +111,7 @@ internal class DataClassGenerator(
       fileBuilder: FileSpec.Builder,
       implementedInterfaces: List<String>,
       serialiseDiscriminator: Boolean,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
   ): FileSpec {
     val objectBuilder = TypeSpec.objectBuilder(className)
         .addModifiers(KModifier.DATA)
@@ -115,7 +119,9 @@ internal class DataClassGenerator(
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              strategy.variantAnnotation(discriminatorOverride!!.rawValue)?.let { builder.addAnnotation(it) }
+              discriminatorOverrides.firstOrNull()?.let { override ->
+                strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
+              }
             }
           }
         }
@@ -127,13 +133,14 @@ internal class DataClassGenerator(
 
   private fun buildInlineEnumClasses(
       schema: Schema,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
       fileBuilder: FileSpec.Builder,
   ): Map<String, ClassName> =
       schema.properties?.entries
           ?.filter { (propName, propValue) ->
-            !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName &&
+            !propValue.enum.isNullOrEmpty() &&
+                discriminatorOverrides.none { it.propertyName == propName } &&
                 propName !in interfacePropertyNames
           }
           ?.associate { (propName, propValue) ->
@@ -146,14 +153,15 @@ internal class DataClassGenerator(
       propName: String,
       propValue: Schema,
       required: Set<String>,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       enumClassNames: Map<String, ClassName>,
   ): ParameterSpec {
     val propertyName = config.namingStrategy.propertyName(propName)
-    if (propName == discriminatorOverride?.propertyName) {
-      val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+    val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
+    if (matchingOverride != null) {
+      val enumType = ClassName(config.packageName, config.namingStrategy.className(matchingOverride.interfaceName), "Type")
       return ParameterSpec.builder(propertyName, enumType)
-          .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
+          .defaultValue("%T.%L", enumType, matchingOverride.constant)
           .build()
     }
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
@@ -168,14 +176,15 @@ internal class DataClassGenerator(
       propName: String,
       propValue: Schema,
       required: Set<String>,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
       enumClassNames: Map<String, ClassName>,
   ): PropertySpec {
     val propertyName = config.namingStrategy.propertyName(propName)
-    return when (propName) {
-      discriminatorOverride?.propertyName -> buildDiscriminatorProperty(propertyName, propName, discriminatorOverride)
-      in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
+    val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
+    return when {
+      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride)
+      propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
       else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
     }
   }
