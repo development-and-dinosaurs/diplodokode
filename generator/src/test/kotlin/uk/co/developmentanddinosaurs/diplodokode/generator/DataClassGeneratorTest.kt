@@ -485,6 +485,59 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a readOnly property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "id" to Schema(type = "string", readOnly = true),
+        "name" to Schema(type = "string"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the readOnly property has a KDoc note") {
+        code shouldContain "read-only in the OpenAPI spec"
+      }
+
+      Then("the non-readOnly property has no such note") {
+        val nameIdx = code.indexOf("val name:")
+        val readOnlyNoteIdx = code.indexOf("read-only in the OpenAPI spec")
+        assert(nameIdx > readOnlyNoteIdx || readOnlyNoteIdx == -1 || !code.substring(nameIdx).contains("read-only")) {
+          "Expected read-only note only on id property"
+        }
+      }
+    }
+  }
+
+  Given("a schema with a writeOnly property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "password" to Schema(type = "string", writeOnly = true),
+        "username" to Schema(type = "string"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Credentials", schema).toString()
+
+      Then("the writeOnly property is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "write-only in the OpenAPI spec and will not appear in responses"
+      }
+
+      Then("the writeOnly property has a KDoc note") {
+        code shouldContain "NOTE: This property is write-only"
+      }
+
+      Then("the non-writeOnly property is unaffected") {
+        code shouldContain "val username: String"
+      }
+    }
+  }
+
   Given("a deprecated schema") {
     val schema = Schema(
       type = "object",

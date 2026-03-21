@@ -36,9 +36,11 @@ data class Schema(
   val nullable: Boolean? = null,
   val oneOf: List<Schema>? = null,
   val properties: Map<String, Schema>? = null,
+  val readOnly: Boolean? = null,
   val required: List<String>? = null,
   val title: String? = null,
   val type: String? = null,
+  val writeOnly: Boolean? = null,
 )
 
 /**

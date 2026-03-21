@@ -233,6 +233,18 @@ internal class DataClassGenerator(
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
+    if (propValue.readOnly == true) {
+      builder.addKdoc("NOTE: This property is read-only in the OpenAPI spec; do not include it in request bodies.\n")
+    }
+    if (propValue.writeOnly == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", "This property is write-only in the OpenAPI spec and will not appear in responses.")
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+      builder.addKdoc("NOTE: This property is write-only in the OpenAPI spec and will not appear in responses.\n")
+    }
     if (propValue.deprecated == true) {
       builder.addAnnotation(
           AnnotationSpec.builder(Deprecated::class)
@@ -282,6 +294,18 @@ internal class DataClassGenerator(
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+    }
+    if (propValue.readOnly == true) {
+      builder.addKdoc("NOTE: This property is read-only in the OpenAPI spec; do not include it in request bodies.\n")
+    }
+    if (propValue.writeOnly == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", "This property is write-only in the OpenAPI spec and will not appear in responses.")
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+      builder.addKdoc("NOTE: This property is write-only in the OpenAPI spec and will not appear in responses.\n")
     }
     if (propValue.deprecated == true) {
       builder.addAnnotation(
