@@ -13,6 +13,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.ExampleValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private const val JAVA_TIME = "java.time"
@@ -22,6 +23,14 @@ private const val KOTLINX_DATETIME = "kotlinx.datetime"
 private const val DEPRECATED_IN_THE_OPEN_API_SPEC_ = "Deprecated in the OpenAPI spec."
 
 private const val LEVEL_T_WARNING = "level = %T.WARNING"
+
+private fun ExampleValue.toKdoc(): String = when (this) {
+  is ExampleValue.Str -> "Example: \"${value}\"\n"
+  is ExampleValue.Num -> "Example: $value\n"
+  is ExampleValue.Bool -> "Example: $value\n"
+  is ExampleValue.Null -> "Example: null\n"
+  is ExampleValue.Raw -> "Example:\n```\n$yaml\n```\n"
+}
 
 internal class DataClassGenerator(
     private val config: GeneratorConfig,
@@ -89,6 +98,7 @@ internal class DataClassGenerator(
           }
           listOfNotNull(schema.title, schema.description).joinToString("\n\n")
               .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
+          schema.example?.let { builder.addKdoc(it.toKdoc()) }
           if (hasForbiddenAdditionalProperties) {
             builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
           }
@@ -253,6 +263,7 @@ internal class DataClassGenerator(
               .build()
       )
     }
+    propValue.example?.let { builder.addKdoc(it.toKdoc()) }
     if (typeResolver.containsAny(kotlinType)) {
       config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
     }
@@ -273,6 +284,7 @@ internal class DataClassGenerator(
         .initializer(propertyName)
     listOfNotNull(propValue.title, propValue.description).joinToString("\n\n")
         .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
+    propValue.example?.let { builder.addKdoc(it.toKdoc()) }
     val baseKotlinType = kotlinType.copy(nullable = false)
     val strDefault = propValue.default as? DefaultValue.Str
     if (strDefault != null && enumClassNames[propName] == null &&

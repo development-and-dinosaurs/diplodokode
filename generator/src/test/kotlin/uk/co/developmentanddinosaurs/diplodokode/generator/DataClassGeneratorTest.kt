@@ -5,6 +5,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.ExampleValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class DataClassGeneratorTest : BehaviorSpec({
@@ -481,6 +482,77 @@ class DataClassGeneratorTest : BehaviorSpec({
       Then("both the property title and description appear in the KDoc") {
         code shouldContain "Arm length"
         code shouldContain "Length of the forelimb in metres."
+      }
+    }
+  }
+
+  Given("a schema with a scalar string example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Str("rex"),
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears quoted in the class KDoc") {
+        code shouldContain "Example: \"rex\""
+      }
+    }
+  }
+
+  Given("a schema with a numeric example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Num(65),
+      properties = mapOf("age" to Schema(type = "integer")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the numeric example appears unquoted in the class KDoc") {
+        code shouldContain "Example: 65"
+      }
+    }
+  }
+
+  Given("a schema with a complex object example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("name: Rex\nage: 65"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "age" to Schema(type = "integer"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears in a code block in the class KDoc") {
+        code shouldContain "Example:"
+        code shouldContain "name: Rex"
+        code shouldContain "age: 65"
+      }
+    }
+  }
+
+  Given("a schema with a property that has a string example") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string", example = ExampleValue.Str("Rex")),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears quoted in the property KDoc") {
+        code shouldContain "Example: \"Rex\""
       }
     }
   }
