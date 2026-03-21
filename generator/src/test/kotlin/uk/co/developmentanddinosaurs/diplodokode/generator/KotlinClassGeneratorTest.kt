@@ -481,8 +481,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a sealed interface") {
       val code = generator.generateFromSchema("Dinosaur", schema).toString()
 
-      Then("it should emit a KDoc note about unsupported inline variants") {
-        code shouldContain "NOTE: Inline oneOf variants are not supported"
+      Then("it should emit a KDoc note about unsupported inline variants including property shapes") {
+        code shouldContain "Inline oneOf variant with properties [armLength: number] is not supported as a named type. Refactor to a \$ref schema."
       }
     }
   }
@@ -544,7 +544,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
 
     When("the generator produces a data class with a discriminator override") {
-      val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = generator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the discriminator property is an override with a default value") {
         code shouldContain "override val type: Dinosaur.Type"
@@ -859,7 +859,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         ),
       )
       val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
-      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = serialisationGenerator.generateFromSchema("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the data class is annotated with @SerialName for the discriminator value") {
         code shouldContain """@SerialName("tyrannosaur")"""
@@ -1127,7 +1127,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       val code = serialisationGenerator.generateFromSchema(
           "UnknownDinosaur", schema,
           implementedInterfaces = listOf("Dinosaur"),
-          discriminatorOverride = discriminatorOverride,
+          discriminatorOverrides = listOf(discriminatorOverride),
       ).toString()
 
       Then("a data object is generated") {
@@ -1166,7 +1166,7 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       val code = annotationGenerator.generateFromSchema(
           "UnknownDinosaur", schema,
           implementedInterfaces = listOf("Dinosaur"),
-          discriminatorOverride = discriminatorOverride,
+          discriminatorOverrides = listOf(discriminatorOverride),
       ).toString()
 
       Then("a data class is generated") {

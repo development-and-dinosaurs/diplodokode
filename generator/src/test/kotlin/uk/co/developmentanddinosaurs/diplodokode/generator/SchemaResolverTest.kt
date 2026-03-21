@@ -2,9 +2,11 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainKey
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Discriminator
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class SchemaResolverTest : BehaviorSpec({
@@ -340,8 +342,8 @@ class SchemaResolverTest : BehaviorSpec({
       }
 
       Then("discriminator overrides use the sanitized constant") {
-        resolved.discriminatorOverrides["ForestDweller"]!!.constant shouldBe "FOREST_HABITAT"
-        resolved.discriminatorOverrides["SwampDweller"]!!.constant shouldBe "SWAMP_HABITAT"
+        resolved.discriminatorOverrides["ForestDweller"]!!.single().constant shouldBe "FOREST_HABITAT"
+        resolved.discriminatorOverrides["SwampDweller"]!!.single().constant shouldBe "SWAMP_HABITAT"
       }
     }
   }
@@ -376,6 +378,38 @@ class SchemaResolverTest : BehaviorSpec({
       Then("digit-leading constants are prefixed with an underscore") {
         enum.constants shouldContain "_2_LEGGED"
         enum.constants shouldContain "_4_LEGGED"
+      }
+    }
+  }
+
+  Given("a variant that participates in two discriminated oneOf hierarchies") {
+    val tyrannosaur = Schema(
+      type = "object",
+      properties = mapOf(
+        "dinosaurType" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "predatorType" to Schema(type = "string", enum = listOf("biped")),
+      ),
+    )
+    val schemas = mapOf(
+      "Tyrannosaur" to tyrannosaur,
+      "Dinosaur" to Schema(
+        oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+        discriminator = Discriminator("dinosaurType"),
+      ),
+      "Predator" to Schema(
+        oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+        discriminator = Discriminator("predatorType"),
+      ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("both discriminator overrides are preserved for the variant") {
+        val overrides = resolved.discriminatorOverrides["Tyrannosaur"]
+        overrides.shouldNotBeNull()
+        overrides.size shouldBe 2
+        overrides.map { it.interfaceName } shouldContainExactlyInAnyOrder listOf("Dinosaur", "Predator")
       }
     }
   }

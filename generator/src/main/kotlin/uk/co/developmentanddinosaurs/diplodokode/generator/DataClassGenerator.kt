@@ -11,8 +11,13 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
+
+private const val JAVA_TIME = "java.time"
+private const val KOTLIN_UUID = "kotlin.uuid"
+private const val KOTLINX_DATETIME = "kotlinx.datetime"
 
 internal class DataClassGenerator(
     private val config: GeneratorConfig,
@@ -24,54 +29,62 @@ internal class DataClassGenerator(
       name: String,
       schema: Schema,
       implementedInterfaces: List<String> = emptyList(),
-      discriminatorOverride: DiscriminatorOverride? = null,
+      discriminatorOverrides: List<DiscriminatorOverride> = emptyList(),
       interfacePropertyNames: Set<String> = emptySet(),
   ): FileSpec {
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    val serialiseDiscriminator = discriminatorOverride != null && when (config.polymorphismStrategy) {
-      PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(discriminatorOverride.propertyName) != null
-      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
-    }
+    val serialisedDiscriminatorProperties = discriminatorOverrides
+        .filter { isDiscriminatorSerialised(it) }
+        .map { it.propertyName }
+        .toSet()
+    val serialiseDiscriminator = serialisedDiscriminatorProperties.isNotEmpty()
     val required = schema.required?.toSet() ?: emptySet()
 
-    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverride, interfacePropertyNames, fileBuilder)
+    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverrides, interfacePropertyNames, fileBuilder)
 
     val constructorParams = schema.properties?.entries
-        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
-          buildConstructorParam(propName, propValue, required, discriminatorOverride, enumClassNames)
+          buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
-        ?.filter { (propName, _) -> !(serialiseDiscriminator && propName == discriminatorOverride.propertyName) }
+        ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
-          buildProperty(propName, propValue, required, discriminatorOverride, interfacePropertyNames, enumClassNames)
+          buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
 
     if (constructorParams.isEmpty()) {
-      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverride)
+      return generateDataObject(className, fileBuilder, implementedInterfaces, serialiseDiscriminator, discriminatorOverrides)
     }
 
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
     if (allTypes.any { typeResolver.containsKotlinUuid(it) }) {
       fileBuilder.addAnnotation(
           AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-              .addMember("%T::class", ClassName("kotlin.uuid", "ExperimentalUuidApi"))
+              .addMember("%T::class", ClassName(KOTLIN_UUID, "ExperimentalUuidApi"))
               .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
               .build()
       )
     }
 
+    val hasForbiddenAdditionalProperties = schema.additionalProperties is AdditionalProperties.Forbidden
+
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)
         .also { builder ->
           schema.description?.let { builder.addKdoc("$it\n") }
+          if (hasForbiddenAdditionalProperties) {
+            builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
+          }
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              strategy.variantAnnotation(discriminatorOverride.rawValue)?.let { builder.addAnnotation(it) }
+              discriminatorOverrides.firstOrNull { isDiscriminatorSerialised(it) }?.let { override ->
+                strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
+              }
             }
           }
         }
@@ -90,7 +103,7 @@ internal class DataClassGenerator(
       fileBuilder: FileSpec.Builder,
       implementedInterfaces: List<String>,
       serialiseDiscriminator: Boolean,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
   ): FileSpec {
     val objectBuilder = TypeSpec.objectBuilder(className)
         .addModifiers(KModifier.DATA)
@@ -98,7 +111,9 @@ internal class DataClassGenerator(
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              strategy.variantAnnotation(discriminatorOverride!!.rawValue)?.let { builder.addAnnotation(it) }
+              discriminatorOverrides.firstOrNull { isDiscriminatorSerialised(it) }?.let { override ->
+                strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
+              }
             }
           }
         }
@@ -108,15 +123,22 @@ internal class DataClassGenerator(
     return fileBuilder.addType(objectBuilder.build()).build()
   }
 
+  private fun isDiscriminatorSerialised(override: DiscriminatorOverride): Boolean =
+      when (config.polymorphismStrategy) {
+        PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(override.propertyName) != null
+        PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+      }
+
   private fun buildInlineEnumClasses(
       schema: Schema,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
       fileBuilder: FileSpec.Builder,
   ): Map<String, ClassName> =
       schema.properties?.entries
           ?.filter { (propName, propValue) ->
-            !propValue.enum.isNullOrEmpty() && propName != discriminatorOverride?.propertyName &&
+            !propValue.enum.isNullOrEmpty() &&
+                discriminatorOverrides.none { it.propertyName == propName } &&
                 propName !in interfacePropertyNames
           }
           ?.associate { (propName, propValue) ->
@@ -129,14 +151,15 @@ internal class DataClassGenerator(
       propName: String,
       propValue: Schema,
       required: Set<String>,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       enumClassNames: Map<String, ClassName>,
   ): ParameterSpec {
     val propertyName = config.namingStrategy.propertyName(propName)
-    if (propName == discriminatorOverride?.propertyName) {
-      val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+    val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
+    if (matchingOverride != null) {
+      val enumType = ClassName(config.packageName, config.namingStrategy.className(matchingOverride.interfaceName), "Type")
       return ParameterSpec.builder(propertyName, enumType)
-          .defaultValue("%T.%L", enumType, discriminatorOverride.constant)
+          .defaultValue("%T.%L", enumType, matchingOverride.constant)
           .build()
     }
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
@@ -151,14 +174,15 @@ internal class DataClassGenerator(
       propName: String,
       propValue: Schema,
       required: Set<String>,
-      discriminatorOverride: DiscriminatorOverride?,
+      discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
       enumClassNames: Map<String, ClassName>,
   ): PropertySpec {
     val propertyName = config.namingStrategy.propertyName(propName)
-    return when (propName) {
-      discriminatorOverride?.propertyName -> buildDiscriminatorProperty(propertyName, propName, discriminatorOverride)
-      in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
+    val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
+    return when {
+      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride)
+      propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
       else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
     }
   }
@@ -207,6 +231,24 @@ internal class DataClassGenerator(
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
     propValue.description?.let { builder.addKdoc("$it\n") }
+    val baseKotlinType = kotlinType.copy(nullable = false)
+    val strDefault = propValue.default as? DefaultValue.Str
+    if (strDefault != null && enumClassNames[propName] == null &&
+        baseKotlinType != String::class.asTypeName() && parseableDefaults[baseKotlinType] == null) {
+      val typeName = baseKotlinType.toString().substringAfterLast(".")
+      builder.addKdoc("NOTE: default value '${strDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
+    }
+    val numDefault = propValue.default as? DefaultValue.Num
+    if (numDefault != null && baseKotlinType !in knownNumericTypes) {
+      val typeName = baseKotlinType.toString().substringAfterLast(".")
+      builder.addKdoc("NOTE: default value '${numDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
+    }
+    if (propValue.format == "uri" && baseKotlinType == String::class.asTypeName()) {
+      builder.addKdoc("NOTE: format is 'uri'; represented as String (no KMP-safe URI type). See README for alternatives.\n")
+    }
+    if (propValue.type == "array" && propValue.items == null) {
+      builder.addKdoc("NOTE: no 'items' schema defined — type is List<Any>. Add an 'items' schema for a typed list.\n")
+    }
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
@@ -226,7 +268,8 @@ internal class DataClassGenerator(
         enumClassName != null -> CodeBlock.of(
             "%T.%L", enumClassName, config.namingStrategy.enumConstant(default.value)
         )
-        else -> CodeBlock.of("%S", default.value)
+        baseType == String::class.asTypeName() -> CodeBlock.of("%S", default.value)
+        else -> parseableDefaults[baseType]?.invoke(default.value)
       }
       is DefaultValue.Num -> when (baseType) {
         Long::class.asTypeName() -> CodeBlock.of("%LL", default.value.toLong())
@@ -236,6 +279,32 @@ internal class DataClassGenerator(
         else -> null
       }
     }
+  }
+
+  companion object {
+    val knownNumericTypes: Set<TypeName> = setOf(
+        Long::class.asTypeName(),
+        Float::class.asTypeName(),
+        Int::class.asTypeName(),
+        Double::class.asTypeName(),
+    )
+
+    private fun parseCall(type: ClassName) = { v: String -> CodeBlock.of("%T.parse(%S)", type, v) }
+
+    val parseableDefaults: Map<TypeName, (String) -> CodeBlock> = mapOf(
+        ClassName(KOTLINX_DATETIME, "Instant")  to parseCall(ClassName(KOTLINX_DATETIME, "Instant")),
+        ClassName(KOTLINX_DATETIME, "LocalDate") to parseCall(ClassName(KOTLINX_DATETIME, "LocalDate")),
+        ClassName(KOTLINX_DATETIME, "LocalTime") to parseCall(ClassName(KOTLINX_DATETIME, "LocalTime")),
+        ClassName("kotlin.time", "Duration")       to parseCall(ClassName("kotlin.time", "Duration")),
+        ClassName(KOTLIN_UUID, "Uuid")           to parseCall(ClassName(KOTLIN_UUID, "Uuid")),
+        ClassName(JAVA_TIME, "Instant")          to parseCall(ClassName(JAVA_TIME, "Instant")),
+        ClassName(JAVA_TIME, "LocalDate")        to parseCall(ClassName(JAVA_TIME, "LocalDate")),
+        ClassName(JAVA_TIME, "LocalTime")        to parseCall(ClassName(JAVA_TIME, "LocalTime")),
+        ClassName(JAVA_TIME, "Duration")         to parseCall(ClassName(JAVA_TIME, "Duration")),
+        ClassName("java.util", "UUID")             to { v -> CodeBlock.of("%T.fromString(%S)", ClassName("java.util", "UUID"), v) },
+        ClassName("java.net", "URI")               to { v -> CodeBlock.of("%T(%S)", ClassName("java.net", "URI"), v) },
+        ByteArray::class.asTypeName()              to { v -> CodeBlock.of("%S.toByteArray()", v) },
+    )
   }
 
   private fun PropertySpec.Builder.applySerialName(specName: String, kotlinName: String): PropertySpec.Builder {

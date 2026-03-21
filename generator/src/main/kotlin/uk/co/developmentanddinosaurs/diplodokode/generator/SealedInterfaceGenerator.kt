@@ -39,8 +39,13 @@ internal class SealedInterfaceGenerator(
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
     addAbstractProperties(interfaceBuilder, schema, discriminatorPropName)
 
-    if (variants.any { it.ref == null }) {
-      interfaceBuilder.addKdoc("NOTE: Inline $keyword variants are not supported. Define variants as \$ref schemas.\n")
+    variants.filter { it.ref == null }.forEach { variant ->
+      if (variant.properties.isNullOrEmpty()) {
+        interfaceBuilder.addKdoc("NOTE: An inline $keyword variant with no properties is not supported. Define it as a \$ref schema.\n")
+      } else {
+        val propertyList = variant.properties.entries.joinToString(", ") { (k, v) -> "$k: ${v.type ?: "unknown"}" }
+        interfaceBuilder.addKdoc("NOTE: Inline $keyword variant with properties [$propertyList] is not supported as a named type. Refactor to a \$ref schema.\n")
+      }
     }
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
@@ -62,7 +67,7 @@ internal class SealedInterfaceGenerator(
       schema: Schema,
   ) {
     when {
-      discriminatorEnum != null && !useSerialisedDiscriminator -> addTypeEnum(interfaceBuilder, interfaceName, discriminatorEnum)
+      discriminatorEnum != null && !useSerialisedDiscriminator -> addTypeEnum(interfaceBuilder, interfaceName, discriminatorEnum, schema)
       discriminatorEnum != null -> addSerialisedDiscriminator(interfaceBuilder, discriminatorEnum)
       else -> addFallbackDiscriminator(interfaceBuilder, schema)
     }
@@ -72,7 +77,12 @@ internal class SealedInterfaceGenerator(
       interfaceBuilder: TypeSpec.Builder,
       interfaceName: String,
       discriminatorEnum: DiscriminatorEnum,
+      schema: Schema,
   ) {
+    if (discriminatorEnum.constants.isEmpty()) {
+      addFallbackDiscriminator(interfaceBuilder, schema)
+      return
+    }
     val enumType = ClassName(config.packageName, interfaceName, "Type")
     val enumBuilder = TypeSpec.enumBuilder("Type")
     discriminatorEnum.constants.forEach { enumBuilder.addEnumConstant(it) }

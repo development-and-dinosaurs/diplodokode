@@ -22,7 +22,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
           schema,
           implementedInterfaces[name] ?: emptyList(),
           discriminatorEnums[name],
-          discriminatorOverrides[name],
+          discriminatorOverrides[name] ?: emptyList(),
           interfacePropertyNames[name] ?: emptySet(),
       )
     }

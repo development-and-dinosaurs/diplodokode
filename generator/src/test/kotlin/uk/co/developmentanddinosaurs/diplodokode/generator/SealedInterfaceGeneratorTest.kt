@@ -237,18 +237,55 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
-  Given("a schema with inline (non-ref) variants") {
+  Given("a schema with an inline variant that has properties") {
     val schema = Schema(
       oneOf = listOf(
-        Schema(type = "object", properties = mapOf("name" to Schema(type = "string"))),
+        Schema(type = "object", properties = mapOf(
+          "name" to Schema(type = "string"),
+          "armLength" to Schema(type = "integer"),
+        )),
       ),
     )
 
     When("the generator produces a sealed interface") {
       val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", null).toString()
 
-      Then("a warning note appears in the KDoc") {
-        code shouldContain "NOTE: Inline oneOf variants are not supported"
+      Then("the warning includes the full property list and refactor instruction") {
+        code shouldContain "Inline oneOf variant with properties [name: string, armLength: integer] is not supported as a named type. Refactor to a \$ref schema."
+      }
+    }
+  }
+
+  Given("a schema with an inline variant that has no properties") {
+    val schema = Schema(
+      oneOf = listOf(Schema(type = "object")),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("a generic warning note appears in the KDoc") {
+        code shouldContain "inline oneOf variant with no properties is not supported"
+      }
+    }
+  }
+
+  Given("a discriminator enum with no constants (empty constants list)") {
+    val schema = Schema(
+      oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+      discriminator = Discriminator("type"),
+    )
+    val emptyDiscriminatorEnum = DiscriminatorEnum("type", emptyList())
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", emptyDiscriminatorEnum).toString()
+
+      Then("no empty enum class Type is emitted") {
+        code shouldNotContain "enum class Type"
+      }
+
+      Then("the fallback abstract discriminator property is emitted instead") {
+        code shouldContain "abstract val type: String"
       }
     }
   }

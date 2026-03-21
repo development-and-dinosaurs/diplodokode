@@ -3,6 +3,8 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class DataClassGeneratorTest : BehaviorSpec({
@@ -38,6 +40,92 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a variant that belongs to two discriminated sealed hierarchies") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("dinosaurType", "predatorType", "name"),
+      properties = mapOf(
+        "dinosaurType" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "predatorType" to Schema(type = "string", enum = listOf("biped")),
+        "name" to Schema(type = "string"),
+      ),
+    )
+    val overrides = listOf(
+      DiscriminatorOverride("Dinosaur", "dinosaurType", "TYRANNOSAUR", "tyrannosaur"),
+      DiscriminatorOverride("Predator", "predatorType", "BIPED", "biped"),
+    )
+
+    When("the generator produces the variant data class") {
+      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur", "Predator"), discriminatorOverrides = overrides).toString()
+
+      Then("the first discriminator property is an override with its default") {
+        code shouldContain "override val dinosaurType: Dinosaur.Type"
+        code shouldContain "Dinosaur.Type.TYRANNOSAUR"
+      }
+
+      Then("the second discriminator property is also an override with its default") {
+        code shouldContain "override val predatorType: Predator.Type"
+        code shouldContain "Predator.Type.BIPED"
+      }
+
+      Then("the regular property is still generated") {
+        code shouldContain "val name: String"
+      }
+
+      Then("no inline enum classes are generated for the discriminator properties") {
+        code shouldNotContain "enum class DinosaurType"
+        code shouldNotContain "enum class PredatorType"
+      }
+    }
+  }
+
+  Given("a variant with two discriminator overrides where only one is handled by the serialisation strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("dinosaurType", "predatorType", "name"),
+      properties = mapOf(
+        "dinosaurType" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "predatorType" to Schema(type = "string", enum = listOf("biped")),
+        "name" to Schema(type = "string"),
+      ),
+    )
+    val overrides = listOf(
+      DiscriminatorOverride("Dinosaur", "dinosaurType", "TYRANNOSAUR", "tyrannosaur"),
+      DiscriminatorOverride("Predator", "predatorType", "BIPED", "biped"),
+    )
+    // Custom strategy that only provides discriminatorAnnotation for "dinosaurType"
+    val partialStrategy = object : SerializationStrategy {
+      override val classAnnotation = com.squareup.kotlinpoet.ClassName("kotlinx.serialization", "Serializable")
+      override fun enumConstantAnnotation(rawValue: String) = null
+      override fun propertyAnnotation(specName: String) = null
+      override fun discriminatorAnnotation(propertyName: String) =
+        if (propertyName == "dinosaurType")
+          com.squareup.kotlinpoet.AnnotationSpec.builder(com.squareup.kotlinpoet.ClassName("example", "Discriminator")).build()
+        else null
+    }
+    val config = GeneratorConfig(
+      serialisationStrategy = partialStrategy,
+      polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
+    )
+
+    When("the generator produces the variant data class") {
+      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur", "Predator"), discriminatorOverrides = overrides).toString()
+
+      Then("the serialised discriminator property is dropped from the constructor") {
+        code shouldNotContain "val dinosaurType:"
+      }
+
+      Then("the non-serialised discriminator property is still emitted as override val with default") {
+        code shouldContain "override val predatorType: Predator.Type"
+        code shouldContain "Predator.Type.BIPED"
+      }
+
+      Then("the regular property is still generated") {
+        code shouldContain "val name: String"
+      }
+    }
+  }
+
   Given("a data class with a discriminator override, without serialisation") {
     val schema = Schema(
       type = "object",
@@ -50,7 +138,7 @@ class DataClassGeneratorTest : BehaviorSpec({
     val override = DiscriminatorOverride("Dinosaur", "type", "TYRANNOSAUR", "tyrannosaur")
 
     When("the generator produces the variant data class") {
-      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = generator().generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the discriminator property is an override with a default value") {
         code shouldContain "override val type: Dinosaur.Type"
@@ -80,7 +168,7 @@ class DataClassGeneratorTest : BehaviorSpec({
     val config = GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy)
 
     When("the generator produces the variant data class") {
-      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverride = override).toString()
+      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur"), discriminatorOverrides = listOf(override)).toString()
 
       Then("the class is annotated with @SerialName for the discriminator value") {
         code shouldContain """@SerialName("tyrannosaur")"""
@@ -188,6 +276,181 @@ class DataClassGeneratorTest : BehaviorSpec({
 
       Then("a @SerialName annotation maps back to the spec name") {
         code shouldContain """@SerialName("arm_length")"""
+      }
+    }
+  }
+
+  Given("a schema where a date-time property has a default value") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "createdAt" to Schema(type = "string", format = "date-time", default = DefaultValue.Str("2024-01-01T00:00:00Z")),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("no raw string literal default is emitted") {
+        code shouldNotContain "= \"2024-01-01T00:00:00Z\""
+      }
+
+      Then("a parse call is emitted as the default") {
+        code shouldContain "Instant.parse(\"2024-01-01T00:00:00Z\")"
+      }
+    }
+  }
+
+  Given("a schema where a byte-format property has a default value") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "data" to Schema(type = "string", format = "byte", default = DefaultValue.Str("aGVsbG8=")),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("a toByteArray() call is emitted as the default") {
+        code shouldContain "\"aGVsbG8=\".toByteArray()"
+      }
+    }
+  }
+
+  Given("a schema with a custom numeric type and a numeric default") {
+    val customConfig = GeneratorConfig(
+      typeMappingStrategy = CustomTypeMappingStrategy(
+        baseMappings = mapOf("number" to com.squareup.kotlinpoet.ClassName("java.math", "BigDecimal")),
+      ),
+    )
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("weight" to Schema(type = "number", default = DefaultValue.Num(42.5))),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator(customConfig).generate("Dinosaur", schema).toString()
+
+      Then("no numeric default is emitted for the unknown type") {
+        code shouldNotContain "= 42.5"
+      }
+
+      Then("a KDoc note explains the dropped default") {
+        code shouldContain "cannot be represented as a Kotlin literal for type BigDecimal"
+        code shouldContain "no default emitted"
+      }
+    }
+  }
+
+  Given("a schema with a uri-format string property using the KMP type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("homepage" to Schema(type = "string", format = "uri")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Dinosaur", schema).toString()
+
+      Then("the property type is String") {
+        code shouldContain "val homepage: String"
+      }
+
+      Then("a KDoc note explains the uri-to-String mapping") {
+        code shouldContain "format is 'uri'; represented as String"
+      }
+    }
+  }
+
+  Given("a schema with a uri-format string property using the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("homepage" to Schema(type = "string", format = "uri")),
+    )
+    val config = GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy())
+
+    When("the generator produces a data class") {
+      val code = generator(config).generate("Dinosaur", schema).toString()
+
+      Then("the property type is URI") {
+        code shouldContain "val homepage: URI"
+      }
+
+      Then("no KDoc note about String representation is emitted") {
+        code shouldNotContain "represented as String"
+      }
+    }
+  }
+
+  Given("a schema with an array property that has no items schema") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("bones" to Schema(type = "array")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the property type is List<Any>") {
+        code shouldContain "val bones: List<Any>"
+      }
+
+      Then("a KDoc note warns about missing items schema") {
+        code shouldContain "no 'items' schema defined"
+      }
+    }
+  }
+
+  Given("a schema with additionalProperties: false at the schema level") {
+    val schema = Schema(
+      type = "object",
+      additionalProperties = AdditionalProperties.Forbidden,
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the named property is still emitted") {
+        code shouldContain "val name: String"
+      }
+
+      Then("no Map property is generated") {
+        code shouldNotContain "Map<"
+      }
+
+      Then("a KDoc note states additional properties are forbidden") {
+        code shouldContain "additional properties are forbidden by the OpenAPI spec"
+      }
+    }
+  }
+
+  Given("a schema where a property has additionalProperties: false on its own schema") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "metadata" to Schema(type = "object", additionalProperties = AdditionalProperties.Forbidden),
+      ),
+    )
+
+    When("the generator produces a data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the property is still emitted") {
+        code shouldContain "metadata"
+      }
+
+      Then("no Map type is generated for the property") {
+        code shouldNotContain "Map<"
+      }
+
+      Then("no class-level KDoc note is added (the constraint is on the property value, not the class)") {
+        code shouldNotContain "additional properties are forbidden by the OpenAPI spec"
+      }
+
+      Then("the other property is still emitted") {
+        code shouldContain "val name: String"
       }
     }
   }

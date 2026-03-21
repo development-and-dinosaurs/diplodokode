@@ -2,6 +2,7 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
@@ -147,8 +148,8 @@ class TypeResolverTest : BehaviorSpec({
       val schema = Schema(type = "object", additionalProperties = AdditionalProperties.Forbidden)
       val type = resolver.resolveType("closed", schema, isNullable = false, enumClassNames = emptyMap())
 
-      Then("it resolves to Map<String, Any>") {
-        type.toString() shouldBe "kotlin.collections.Map<kotlin.String, kotlin.Any>"
+      Then("it does not resolve to a Map type — additionalProperties: false is a constraint, not a type") {
+        type.toString() shouldNotBe "kotlin.collections.Map<kotlin.String, kotlin.Any>"
       }
     }
 
