@@ -87,7 +87,8 @@ internal class DataClassGenerator(
                     .build()
             )
           }
-          schema.description?.let { builder.addKdoc("$it\n") }
+          listOfNotNull(schema.title, schema.description).joinToString("\n\n")
+              .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
           if (hasForbiddenAdditionalProperties) {
             builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
           }
@@ -258,7 +259,8 @@ internal class DataClassGenerator(
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
-    propValue.description?.let { builder.addKdoc("$it\n") }
+    listOfNotNull(propValue.title, propValue.description).joinToString("\n\n")
+        .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
     val baseKotlinType = kotlinType.copy(nullable = false)
     val strDefault = propValue.default as? DefaultValue.Str
     if (strDefault != null && enumClassNames[propName] == null &&

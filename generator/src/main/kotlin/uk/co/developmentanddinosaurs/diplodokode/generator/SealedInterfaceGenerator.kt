@@ -36,7 +36,8 @@ internal class SealedInterfaceGenerator(
     implementedInterfaces.forEach { iface ->
       interfaceBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
     }
-    schema.description?.let { interfaceBuilder.addKdoc("$it\n") }
+    listOfNotNull(schema.title, schema.description).joinToString("\n\n")
+        .takeIf { it.isNotEmpty() }?.let { interfaceBuilder.addKdoc("$it\n") }
     interfaceBuilder.addKdoc(variantKdoc(keyword))
 
     val useSerialisedDiscriminator = discriminatorEnum != null && when (config.polymorphismStrategy) {

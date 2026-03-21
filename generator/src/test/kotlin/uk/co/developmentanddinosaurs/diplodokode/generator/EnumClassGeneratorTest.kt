@@ -58,6 +58,24 @@ class EnumClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a top-level enum schema with a title and description") {
+    val generator = EnumClassGenerator(GeneratorConfig())
+
+    When("generating a top-level enum") {
+      val schema = Schema(
+        enum = listOf("triassic", "jurassic"),
+        title = "Geological era",
+        description = "The era in which the dinosaur lived.",
+      )
+      val code = generator.generateTopLevelEnum("Era", schema).toString()
+
+      Then("both title and description appear in the KDoc") {
+        code shouldContain "Geological era"
+        code shouldContain "The era in which the dinosaur lived."
+      }
+    }
+  }
+
   Given("a deprecated top-level enum schema") {
     val generator = EnumClassGenerator(GeneratorConfig())
 

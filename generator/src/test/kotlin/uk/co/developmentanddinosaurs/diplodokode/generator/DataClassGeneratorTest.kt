@@ -425,6 +425,66 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a title but no description") {
+    val schema = Schema(
+      type = "object",
+      title = "A fearsome predator",
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the title appears in the KDoc") {
+        code shouldContain "A fearsome predator"
+      }
+    }
+  }
+
+  Given("a schema with both a title and a description") {
+    val schema = Schema(
+      type = "object",
+      title = "Tyrannosaur",
+      description = "A large bipedal carnivore from the Cretaceous period.",
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the title and description both appear in the KDoc") {
+        code shouldContain "Tyrannosaur"
+        code shouldContain "A large bipedal carnivore from the Cretaceous period."
+      }
+
+      Then("the title appears before the description") {
+        val titleIdx = code.indexOf("Tyrannosaur")
+        val descIdx = code.indexOf("A large bipedal carnivore")
+        assert(titleIdx < descIdx) { "Expected title before description" }
+      }
+    }
+  }
+
+  Given("a schema with a property that has both a title and a description") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "armLength" to Schema(type = "number", title = "Arm length", description = "Length of the forelimb in metres."),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("both the property title and description appear in the KDoc") {
+        code shouldContain "Arm length"
+        code shouldContain "Length of the forelimb in metres."
+      }
+    }
+  }
+
   Given("a deprecated schema") {
     val schema = Schema(
       type = "object",

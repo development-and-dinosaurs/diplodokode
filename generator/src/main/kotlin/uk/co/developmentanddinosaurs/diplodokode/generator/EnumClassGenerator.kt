@@ -7,9 +7,10 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 internal class EnumClassGenerator(private val config: GeneratorConfig) {
 
-  fun generateEnumClass(name: String, values: List<String>, description: String? = null, deprecated: Boolean? = null): TypeSpec {
+  fun generateEnumClass(name: String, values: List<String>, title: String? = null, description: String? = null, deprecated: Boolean? = null): TypeSpec {
     val enumBuilder = TypeSpec.enumBuilder(name)
-    description?.let { enumBuilder.addKdoc("$it\n") }
+    listOfNotNull(title, description).joinToString("\n\n")
+        .takeIf { it.isNotEmpty() }?.let { enumBuilder.addKdoc("$it\n") }
     if (deprecated == true) {
       enumBuilder.addAnnotation(
           AnnotationSpec.builder(Deprecated::class)
@@ -34,7 +35,7 @@ internal class EnumClassGenerator(private val config: GeneratorConfig) {
   fun generateTopLevelEnum(name: String, schema: Schema): FileSpec {
     val enumName = config.namingStrategy.className(name)
     return FileSpec.builder(config.packageName, enumName)
-        .addType(generateEnumClass(enumName, schema.enum ?: emptyList(), schema.description, schema.deprecated))
+        .addType(generateEnumClass(enumName, schema.enum ?: emptyList(), schema.title, schema.description, schema.deprecated))
         .build()
   }
 }

@@ -54,6 +54,23 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a title and description") {
+    val schema = Schema(
+      title = "Dinosaur type",
+      description = "A long-necked herbivorous dinosaur",
+      oneOf = listOf(Schema(ref = "#/components/schemas/Diplodocus")),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Sauropod", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("both title and description appear in the KDoc") {
+        code shouldContain "Dinosaur type"
+        code shouldContain "A long-necked herbivorous dinosaur"
+      }
+    }
+  }
+
   Given("a schema with a description") {
     val schema = Schema(
       description = "A long-necked herbivorous dinosaur",

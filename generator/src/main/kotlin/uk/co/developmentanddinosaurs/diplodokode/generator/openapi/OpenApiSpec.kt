@@ -37,6 +37,7 @@ data class Schema(
   val oneOf: List<Schema>? = null,
   val properties: Map<String, Schema>? = null,
   val required: List<String>? = null,
+  val title: String? = null,
   val type: String? = null,
 )
 
