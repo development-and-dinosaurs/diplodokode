@@ -46,18 +46,16 @@ internal class DataClassGenerator(
     val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverrides, interfacePropertyNames, fileBuilder)
 
     val constructorParams = schema.properties?.entries
-        ?.filter { (propName, propValue) ->
-          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName }) &&
-              propValue.additionalProperties !is AdditionalProperties.Forbidden
+        ?.filter { (propName, _) ->
+          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName })
         }
         ?.map { (propName, propValue) ->
           buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
-        ?.filter { (propName, propValue) ->
-          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName }) &&
-              propValue.additionalProperties !is AdditionalProperties.Forbidden
+        ?.filter { (propName, _) ->
+          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName })
         }
         ?.map { (propName, propValue) ->
           buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames)
@@ -77,8 +75,7 @@ internal class DataClassGenerator(
       )
     }
 
-    val hasForbiddenAdditionalProperties = schema.additionalProperties is AdditionalProperties.Forbidden ||
-        schema.properties?.values?.any { it.additionalProperties is AdditionalProperties.Forbidden } == true
+    val hasForbiddenAdditionalProperties = schema.additionalProperties is AdditionalProperties.Forbidden
 
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)

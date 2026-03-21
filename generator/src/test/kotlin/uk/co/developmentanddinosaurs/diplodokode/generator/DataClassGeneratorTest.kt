@@ -358,28 +358,31 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
-  Given("a schema where a property has additionalProperties: false") {
+  Given("a schema where a property has additionalProperties: false on its own schema") {
     val schema = Schema(
       type = "object",
       properties = mapOf(
         "name" to Schema(type = "string"),
-        "metadata" to Schema(additionalProperties = AdditionalProperties.Forbidden),
+        "metadata" to Schema(type = "object", additionalProperties = AdditionalProperties.Forbidden),
       ),
     )
 
     When("the generator produces a data class") {
       val code = generator().generate("Tyrannosaur", schema).toString()
 
-      Then("the forbidden-additional-properties property is not emitted") {
-        code shouldNotContain "metadata"
+      Then("the property is still emitted") {
+        code shouldContain "metadata"
+      }
+
+      Then("no Map type is generated for the property") {
         code shouldNotContain "Map<"
       }
 
-      Then("a KDoc note states additional properties are forbidden") {
-        code shouldContain "additional properties are forbidden by the OpenAPI spec"
+      Then("no class-level KDoc note is added (the constraint is on the property value, not the class)") {
+        code shouldNotContain "additional properties are forbidden by the OpenAPI spec"
       }
 
-      Then("the regular property is still emitted") {
+      Then("the other property is still emitted") {
         code shouldContain "val name: String"
       }
     }

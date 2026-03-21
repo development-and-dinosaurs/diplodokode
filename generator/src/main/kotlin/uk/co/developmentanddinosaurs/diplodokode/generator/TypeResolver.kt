@@ -25,7 +25,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
           }
-          propValue.additionalProperties != null -> resolveMapType(propValue.additionalProperties)
+          propValue.additionalProperties != null && propValue.additionalProperties !is AdditionalProperties.Forbidden -> resolveMapType(propValue.additionalProperties)
           propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) ->
               ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(propValue.oneOf, config.typeMappingStrategy)))
           else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type, propValue.format)
