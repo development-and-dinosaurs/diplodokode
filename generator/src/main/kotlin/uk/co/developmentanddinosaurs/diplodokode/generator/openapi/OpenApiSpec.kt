@@ -27,6 +27,7 @@ data class Schema(
   val allOf: List<Schema>? = null,
   val anyOf: List<Schema>? = null,
   val default: DefaultValue? = null,
+  val deprecated: Boolean? = null,
   val description: String? = null,
   val discriminator: Discriminator? = null,
   val enum: List<String>? = null,

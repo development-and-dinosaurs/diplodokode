@@ -425,6 +425,49 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a deprecated schema") {
+    val schema = Schema(
+      type = "object",
+      deprecated = true,
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the class is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+    }
+  }
+
+  Given("a schema with a deprecated property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "armLength" to Schema(type = "number", deprecated = true),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the deprecated property is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+
+      Then("the non-deprecated property is not annotated") {
+        code shouldContain "val name: String"
+      }
+    }
+  }
+
   Given("a schema where a property has additionalProperties: false on its own schema") {
     val schema = Schema(
       type = "object",

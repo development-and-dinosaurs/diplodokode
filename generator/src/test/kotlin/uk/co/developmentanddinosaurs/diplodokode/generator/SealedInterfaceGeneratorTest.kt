@@ -270,6 +270,23 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a deprecated sealed interface schema") {
+    val schema = Schema(
+      deprecated = true,
+      oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("the interface is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+    }
+  }
+
   Given("a discriminator enum with no constants (empty constants list)") {
     val schema = Schema(
       oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),

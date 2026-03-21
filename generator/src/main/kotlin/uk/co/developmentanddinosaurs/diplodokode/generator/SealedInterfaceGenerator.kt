@@ -1,5 +1,6 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.KModifier
@@ -23,6 +24,14 @@ internal class SealedInterfaceGenerator(
     val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
 
+    if (schema.deprecated == true) {
+      interfaceBuilder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", "Deprecated in the OpenAPI spec.")
+              .addMember("level = %T.WARNING", DeprecationLevel::class)
+              .build()
+      )
+    }
     config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
     implementedInterfaces.forEach { iface ->
       interfaceBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))

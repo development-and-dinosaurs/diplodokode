@@ -19,6 +19,10 @@ private const val JAVA_TIME = "java.time"
 private const val KOTLIN_UUID = "kotlin.uuid"
 private const val KOTLINX_DATETIME = "kotlinx.datetime"
 
+private const val DEPRECATED_IN_THE_OPEN_API_SPEC_ = "Deprecated in the OpenAPI spec."
+
+private const val LEVEL_T_WARNING = "level = %T.WARNING"
+
 internal class DataClassGenerator(
     private val config: GeneratorConfig,
     private val typeResolver: TypeResolver,
@@ -75,6 +79,14 @@ internal class DataClassGenerator(
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)
         .also { builder ->
+          if (schema.deprecated == true) {
+            builder.addAnnotation(
+                AnnotationSpec.builder(Deprecated::class)
+                    .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+                    .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+                    .build()
+            )
+          }
           schema.description?.let { builder.addKdoc("$it\n") }
           if (hasForbiddenAdditionalProperties) {
             builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
@@ -143,7 +155,7 @@ internal class DataClassGenerator(
           }
           ?.associate { (propName, propValue) ->
             val enumName = config.namingStrategy.className(propName)
-            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!))
+            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!, deprecated = propValue.deprecated))
             propName to ClassName(config.packageName, enumName)
           } ?: emptyMap()
 
@@ -181,7 +193,7 @@ internal class DataClassGenerator(
     val propertyName = config.namingStrategy.propertyName(propName)
     val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
     return when {
-      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride)
+      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride, propValue.deprecated)
       propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
       else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
     }
@@ -191,13 +203,21 @@ internal class DataClassGenerator(
       propertyName: String,
       propName: String,
       discriminatorOverride: DiscriminatorOverride,
+      deprecated: Boolean? = null,
   ): PropertySpec {
     val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-    return PropertySpec.builder(propertyName, enumType)
+    val builder = PropertySpec.builder(propertyName, enumType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
-        .applySerialName(propName, propertyName)
-        .build()
+    if (deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+    }
+    return builder.applySerialName(propName, propertyName).build()
   }
 
   private fun buildOverrideProperty(
@@ -212,6 +232,14 @@ internal class DataClassGenerator(
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
+    if (propValue.deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+    }
     if (typeResolver.containsAny(kotlinType)) {
       config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
     }
@@ -252,6 +280,14 @@ internal class DataClassGenerator(
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+    }
+    if (propValue.deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
     }
     if (typeResolver.containsAny(kotlinType)) {
       config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
