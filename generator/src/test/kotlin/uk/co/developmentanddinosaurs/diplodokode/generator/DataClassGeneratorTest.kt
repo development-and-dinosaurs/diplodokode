@@ -343,7 +343,7 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
-  Given("a schema with a uri-format string property") {
+  Given("a schema with a uri-format string property using the KMP type mapping strategy") {
     val schema = Schema(
       type = "object",
       properties = mapOf("homepage" to Schema(type = "string", format = "uri")),
@@ -358,6 +358,26 @@ class DataClassGeneratorTest : BehaviorSpec({
 
       Then("a KDoc note explains the uri-to-String mapping") {
         code shouldContain "format is 'uri'; represented as String"
+      }
+    }
+  }
+
+  Given("a schema with a uri-format string property using the Java type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf("homepage" to Schema(type = "string", format = "uri")),
+    )
+    val config = GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy())
+
+    When("the generator produces a data class") {
+      val code = generator(config).generate("Dinosaur", schema).toString()
+
+      Then("the property type is URI") {
+        code shouldContain "val homepage: URI"
+      }
+
+      Then("no KDoc note about String representation is emitted") {
+        code shouldNotContain "represented as String"
       }
     }
   }

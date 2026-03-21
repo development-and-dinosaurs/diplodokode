@@ -243,7 +243,7 @@ internal class DataClassGenerator(
       val typeName = baseKotlinType.toString().substringAfterLast(".")
       builder.addKdoc("NOTE: default value '${numDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
     }
-    if (propValue.format == "uri") {
+    if (propValue.format == "uri" && baseKotlinType == String::class.asTypeName()) {
       builder.addKdoc("NOTE: format is 'uri'; represented as String (no KMP-safe URI type). See README for alternatives.\n")
     }
     if (propValue.type == "array" && propValue.items == null) {
