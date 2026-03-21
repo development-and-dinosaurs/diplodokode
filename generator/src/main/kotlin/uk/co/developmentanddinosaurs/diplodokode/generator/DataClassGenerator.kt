@@ -240,6 +240,11 @@ internal class DataClassGenerator(
       val typeName = baseKotlinType.toString().substringAfterLast(".")
       builder.addKdoc("NOTE: default value '${strDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
     }
+    val numDefault = propValue.default as? DefaultValue.Num
+    if (numDefault != null && baseKotlinType !in knownNumericTypes) {
+      val typeName = baseKotlinType.toString().substringAfterLast(".")
+      builder.addKdoc("NOTE: default value '${numDefault.value}' cannot be represented as a Kotlin literal for type $typeName; no default emitted.\n")
+    }
     if (propValue.format == "uri") {
       builder.addKdoc("NOTE: format is 'uri'; represented as String (no KMP-safe URI type). See README for alternatives.\n")
     }
@@ -273,12 +278,19 @@ internal class DataClassGenerator(
         Float::class.asTypeName() -> CodeBlock.of("%Lf", default.value.toFloat())
         Int::class.asTypeName() -> CodeBlock.of("%L", default.value.toInt())
         Double::class.asTypeName() -> CodeBlock.of("%L", default.value.toDouble())
-        else -> CodeBlock.of("%L", default.value.toDouble())
+        else -> null
       }
     }
   }
 
   companion object {
+    val knownNumericTypes: Set<TypeName> = setOf(
+        Long::class.asTypeName(),
+        Float::class.asTypeName(),
+        Int::class.asTypeName(),
+        Double::class.asTypeName(),
+    )
+
     private fun parseCall(type: ClassName) = { v: String -> CodeBlock.of("%T.parse(%S)", type, v) }
 
     val parseableDefaults: Map<TypeName, (String) -> CodeBlock> = mapOf(

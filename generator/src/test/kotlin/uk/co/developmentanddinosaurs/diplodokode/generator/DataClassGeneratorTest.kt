@@ -285,8 +285,13 @@ class DataClassGeneratorTest : BehaviorSpec({
     When("the generator produces a data class") {
       val code = generator(customConfig).generate("Dinosaur", schema).toString()
 
-      Then("a numeric default is emitted as a double literal fallback") {
-        code shouldContain "= 42.5"
+      Then("no numeric default is emitted for the unknown type") {
+        code shouldNotContain "= 42.5"
+      }
+
+      Then("a KDoc note explains the dropped default") {
+        code shouldContain "cannot be represented as a Kotlin literal for type BigDecimal"
+        code shouldContain "no default emitted"
       }
     }
   }
