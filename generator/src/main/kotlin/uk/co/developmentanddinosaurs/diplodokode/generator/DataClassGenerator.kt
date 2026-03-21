@@ -35,28 +35,23 @@ internal class DataClassGenerator(
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
 
-    val serialiseDiscriminator = discriminatorOverrides.isNotEmpty() && when (config.polymorphismStrategy) {
-      PolymorphismStrategy.ANNOTATION -> discriminatorOverrides.any {
-        config.serialisationStrategy?.discriminatorAnnotation(it.propertyName) != null
-      }
-      PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
-    }
+    val serialisedDiscriminatorProperties = discriminatorOverrides
+        .filter { isDiscriminatorSerialised(it) }
+        .map { it.propertyName }
+        .toSet()
+    val serialiseDiscriminator = serialisedDiscriminatorProperties.isNotEmpty()
     val required = schema.required?.toSet() ?: emptySet()
 
     val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverrides, interfacePropertyNames, fileBuilder)
 
     val constructorParams = schema.properties?.entries
-        ?.filter { (propName, _) ->
-          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName })
-        }
+        ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
           buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
-        ?.filter { (propName, _) ->
-          !(serialiseDiscriminator && discriminatorOverrides.any { it.propertyName == propName })
-        }
+        ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
           buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames)
         } ?: emptyList()
@@ -87,7 +82,7 @@ internal class DataClassGenerator(
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              discriminatorOverrides.firstOrNull()?.let { override ->
+              discriminatorOverrides.firstOrNull { isDiscriminatorSerialised(it) }?.let { override ->
                 strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
               }
             }
@@ -116,7 +111,7 @@ internal class DataClassGenerator(
           config.serialisationStrategy?.let { strategy ->
             builder.addAnnotation(strategy.classAnnotation)
             if (serialiseDiscriminator) {
-              discriminatorOverrides.firstOrNull()?.let { override ->
+              discriminatorOverrides.firstOrNull { isDiscriminatorSerialised(it) }?.let { override ->
                 strategy.variantAnnotation(override.rawValue)?.let { builder.addAnnotation(it) }
               }
             }
@@ -127,6 +122,12 @@ internal class DataClassGenerator(
     }
     return fileBuilder.addType(objectBuilder.build()).build()
   }
+
+  private fun isDiscriminatorSerialised(override: DiscriminatorOverride): Boolean =
+      when (config.polymorphismStrategy) {
+        PolymorphismStrategy.ANNOTATION -> config.serialisationStrategy?.discriminatorAnnotation(override.propertyName) != null
+        PolymorphismStrategy.MODULE -> config.serialisationStrategy != null
+      }
 
   private fun buildInlineEnumClasses(
       schema: Schema,

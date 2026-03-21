@@ -79,6 +79,53 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a variant with two discriminator overrides where only one is handled by the serialisation strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("dinosaurType", "predatorType", "name"),
+      properties = mapOf(
+        "dinosaurType" to Schema(type = "string", enum = listOf("tyrannosaur")),
+        "predatorType" to Schema(type = "string", enum = listOf("biped")),
+        "name" to Schema(type = "string"),
+      ),
+    )
+    val overrides = listOf(
+      DiscriminatorOverride("Dinosaur", "dinosaurType", "TYRANNOSAUR", "tyrannosaur"),
+      DiscriminatorOverride("Predator", "predatorType", "BIPED", "biped"),
+    )
+    // Custom strategy that only provides discriminatorAnnotation for "dinosaurType"
+    val partialStrategy = object : SerializationStrategy {
+      override val classAnnotation = com.squareup.kotlinpoet.ClassName("kotlinx.serialization", "Serializable")
+      override fun enumConstantAnnotation(rawValue: String) = null
+      override fun propertyAnnotation(specName: String) = null
+      override fun discriminatorAnnotation(propertyName: String) =
+        if (propertyName == "dinosaurType")
+          com.squareup.kotlinpoet.AnnotationSpec.builder(com.squareup.kotlinpoet.ClassName("example", "Discriminator")).build()
+        else null
+    }
+    val config = GeneratorConfig(
+      serialisationStrategy = partialStrategy,
+      polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
+    )
+
+    When("the generator produces the variant data class") {
+      val code = generator(config).generate("Tyrannosaur", schema, listOf("Dinosaur", "Predator"), discriminatorOverrides = overrides).toString()
+
+      Then("the serialised discriminator property is dropped from the constructor") {
+        code shouldNotContain "val dinosaurType:"
+      }
+
+      Then("the non-serialised discriminator property is still emitted as override val with default") {
+        code shouldContain "override val predatorType: Predator.Type"
+        code shouldContain "Predator.Type.BIPED"
+      }
+
+      Then("the regular property is still generated") {
+        code shouldContain "val name: String"
+      }
+    }
+  }
+
   Given("a data class with a discriminator override, without serialisation") {
     val schema = Schema(
       type = "object",
