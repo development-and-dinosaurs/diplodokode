@@ -1,8 +1,10 @@
 package uk.co.developmentanddinosaurs.diplodokode.plugin
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.file.shouldExist
 import io.kotest.matchers.string.shouldContain
+import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import java.io.File
 
@@ -41,6 +43,34 @@ class GenerateDiplodokodeTaskTest : BehaviorSpec({
         content shouldContain "data class Dinosaur"
         content shouldContain "val name: String"
         content shouldContain "val weight: Double?"
+      }
+    }
+  }
+
+  Given("a task configured with a spec containing an undefined \$ref") {
+    val project = ProjectBuilder.builder().build()
+    val specFile = File("src/test/resources/undefined-ref-api.yaml").absoluteFile
+    val outputDir = project.layout.buildDirectory.dir("generated/kotlin").get().asFile
+
+    val task = project.tasks.register("generateDiplodokode", GenerateDiplodokodeTask::class.java) { task ->
+      task.inputFile.set(specFile)
+      task.outputDir.set(outputDir)
+
+      task.namingMode.set("default")
+      task.nullabilityMode.set("spec-driven")
+      task.packageName.set("uk.co.developmentanddinosaurs.diplodokode.generated")
+      task.typeMappingPreset.set("kmp")
+      task.typeMappingFormatOverrides.set(emptyMap())
+      task.typeMappingBaseOverrides.set(emptyMap())
+      task.serialisationLibrary.set("none")
+      task.moduleName.set("DiplodokodeModule")
+    }.get()
+
+    When("the task action runs") {
+      Then("it throws a GradleException") {
+        shouldThrow<GradleException> {
+          task.generate()
+        }
       }
     }
   }

@@ -2,17 +2,21 @@ package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import com.squareup.kotlinpoet.FileSpec
 
+enum class DiagnosticSeverity { WARNING, ERROR }
+
 /**
  * Describes a single diagnostic (warning or error) produced during generation.
  *
  * @param schemaName The name of the schema that triggered the diagnostic, or empty for file-level issues.
  * @param location A short string identifying where in the schema the issue was found (e.g. `"properties.age"`).
  * @param message A human-readable description of the issue.
+ * @param severity Whether this is a warning (generation continues) or an error (generation fails).
  */
 data class GenerationDiagnostic(
     val schemaName: String,
     val location: String,
     val message: String,
+    val severity: DiagnosticSeverity,
 )
 
 /**

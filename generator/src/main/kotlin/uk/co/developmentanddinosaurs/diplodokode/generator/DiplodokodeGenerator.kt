@@ -1,6 +1,7 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import com.squareup.kotlinpoet.FileSpec
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.OpenApiSpec
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.OpenApiSpecParser
 import java.io.File
 
@@ -10,6 +11,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
   private val classGenerator = KotlinClassGenerator(config)
   private val moduleGenerator = SerializersModuleGenerator(config)
   private val unionInterfaceGenerator = UnionInterfaceGenerator(config)
+  private val validator = SpecValidator()
 
   /**
    * Generates Kotlin files from the given OpenAPI spec file.
@@ -35,12 +37,21 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
    * [GenerationResult.Failure] when generation cannot proceed.
    */
   fun generateFromSpecWithResult(specFile: File): GenerationResult {
-    val files = generateFiles(specFile)
-    return GenerationResult.Success(files)
+    val openApiSpec = parser.parse(specFile)
+    val schemas = openApiSpec.components?.schemas ?: return GenerationResult.Success(emptyList())
+
+    val diagnostics = validator.validate(schemas)
+    val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
+    val warnings = diagnostics.filter { it.severity == DiagnosticSeverity.WARNING }
+
+    if (errors.isNotEmpty()) return GenerationResult.Failure(errors)
+
+    val files = generateFromParsed(openApiSpec)
+    return if (warnings.isNotEmpty()) GenerationResult.PartialSuccess(files, warnings)
+    else GenerationResult.Success(files)
   }
 
-  private fun generateFiles(specFile: File): List<FileSpec> {
-    val openApiSpec = parser.parse(specFile)
+  private fun generateFromParsed(openApiSpec: OpenApiSpec): List<FileSpec> {
     val schemas = openApiSpec.components?.schemas ?: return emptyList()
     val (resolvedSchemas, implementedInterfaces, discriminatorEnums, discriminatorOverrides, interfacePropertyNames) = resolver.resolve(schemas)
 

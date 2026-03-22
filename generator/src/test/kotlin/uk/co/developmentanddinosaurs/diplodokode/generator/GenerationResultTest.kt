@@ -1,6 +1,7 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.io.File
@@ -35,24 +36,54 @@ class GenerationResultTest : BehaviorSpec({
     }
   }
 
+  Given("a spec file with an undefined \$ref") {
+    val specFile = File("src/test/resources/undefined-ref-api.yaml")
+
+    When("generateFromSpecWithResult is called") {
+      val result = generator.generateFromSpecWithResult(specFile)
+
+      Then("it returns Failure") {
+        result.shouldBeInstanceOf<GenerationResult.Failure>()
+      }
+
+      Then("the error identifies the undefined schema") {
+        val failure = result as GenerationResult.Failure
+        failure.errors shouldHaveSize 1
+        failure.errors[0].schemaName shouldBe "Tyrannosaur"
+        failure.errors[0].message shouldBe "References undefined schema 'Triceratops'."
+        failure.errors[0].severity shouldBe DiagnosticSeverity.ERROR
+      }
+    }
+
+    When("generateFromSpec is called") {
+      Then("it throws IllegalStateException") {
+        io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+          generator.generateFromSpec(specFile)
+        }
+      }
+    }
+  }
+
   Given("a GenerationDiagnostic") {
     val diagnostic = GenerationDiagnostic(
       schemaName = "Tyrannosaur",
       location = "properties.armLength",
       message = "No items schema defined for array property.",
+      severity = DiagnosticSeverity.WARNING,
     )
 
-    Then("it holds the schema name, location, and message") {
+    Then("it holds the schema name, location, message, and severity") {
       diagnostic.schemaName shouldBe "Tyrannosaur"
       diagnostic.location shouldBe "properties.armLength"
       diagnostic.message shouldBe "No items schema defined for array property."
+      diagnostic.severity shouldBe DiagnosticSeverity.WARNING
     }
   }
 
   Given("a PartialSuccess result") {
     val files = emptyList<com.squareup.kotlinpoet.FileSpec>()
     val warnings = listOf(
-      GenerationDiagnostic("Triceratops", "properties.horns", "Array property has no items schema."),
+      GenerationDiagnostic("Triceratops", "properties.horns", "Array property has no items schema.", DiagnosticSeverity.WARNING),
     )
     val result = GenerationResult.PartialSuccess(files, warnings)
 
@@ -64,7 +95,7 @@ class GenerationResultTest : BehaviorSpec({
 
   Given("a Failure result") {
     val errors = listOf(
-      GenerationDiagnostic("Diplodocus", "\$ref", "References undefined schema 'Sauropod'."),
+      GenerationDiagnostic("Diplodocus", "\$ref", "References undefined schema 'Sauropod'.", DiagnosticSeverity.ERROR),
     )
     val result = GenerationResult.Failure(errors)
 
