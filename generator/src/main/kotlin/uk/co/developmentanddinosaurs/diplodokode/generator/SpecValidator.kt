@@ -1,5 +1,6 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 internal class SpecValidator {
@@ -44,6 +45,12 @@ internal class SpecValidator {
     schema.items?.let { refs.addAll(collectRefs(it, "${prefix}items.")) }
     schema.properties?.forEach { (key, propSchema) ->
       refs.addAll(collectRefs(propSchema, "${prefix}properties.$key."))
+    }
+    (schema.additionalProperties as? AdditionalProperties.Typed)?.let {
+      refs.addAll(collectRefs(it.schema, "${prefix}additionalProperties."))
+    }
+    schema.discriminator?.mapping?.forEach { (key, refPath) ->
+      refs.add("${prefix}discriminator.mapping.$key" to refPath.substringAfterLast("/"))
     }
     return refs
   }

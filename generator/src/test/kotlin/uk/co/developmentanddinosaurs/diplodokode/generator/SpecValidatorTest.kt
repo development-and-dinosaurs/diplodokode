@@ -290,4 +290,52 @@ class SpecValidatorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a schema with a typed additionalProperties whose \$ref is undefined") {
+    val schemas = mapOf(
+      "Tyrannosaur" to Schema(
+        type = "object",
+        additionalProperties = uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties.Typed(
+          Schema(ref = "#/components/schemas/Diet"),
+        ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced for the undefined additionalProperties ref") {
+        val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
+        errors shouldHaveSize 1
+        errors[0].schemaName shouldBe "Tyrannosaur"
+        errors[0].message shouldContain "Diet"
+      }
+    }
+  }
+
+  Given("a schema with a discriminator mapping that references an undefined schema") {
+    val schemas = mapOf(
+      "Dinosaur" to Schema(
+        oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+        ),
+        discriminator = Discriminator(
+          propertyName = "type",
+          mapping = mapOf("tyrannosaur" to "#/components/schemas/Tyrannosaur", "unknown" to "#/components/schemas/Undefinosaur"),
+        ),
+      ),
+      "Tyrannosaur" to Schema(type = "object"),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced for the undefined mapping target") {
+        val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
+        errors shouldHaveSize 1
+        errors[0].schemaName shouldBe "Dinosaur"
+        errors[0].message shouldContain "Undefinosaur"
+      }
+    }
+  }
 })
