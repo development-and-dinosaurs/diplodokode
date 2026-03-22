@@ -1,6 +1,7 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
@@ -574,11 +575,9 @@ class DataClassGeneratorTest : BehaviorSpec({
       }
 
       Then("the non-readOnly property has no such note") {
-        val nameIdx = code.indexOf("val name:")
-        val readOnlyNoteIdx = code.indexOf("read-only in the OpenAPI spec")
-        assert(nameIdx > readOnlyNoteIdx || readOnlyNoteIdx == -1 || !code.substring(nameIdx).contains("read-only")) {
-          "Expected read-only note only on id property"
-        }
+        // The note should appear exactly once (for 'id'), not for 'name'
+        code.split("read-only in the OpenAPI spec").size shouldBe 2
+        code shouldNotContain "val name: String?\n  read-only"
       }
     }
   }

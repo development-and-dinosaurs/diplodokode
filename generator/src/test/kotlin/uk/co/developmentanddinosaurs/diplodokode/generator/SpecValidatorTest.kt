@@ -78,6 +78,91 @@ class SpecValidatorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a \$ref in an allOf entry pointing to an undefined schema") {
+    val schemas = mapOf(
+      "ExtendedDinosaur" to Schema(
+        allOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(type = "object", properties = mapOf("hornCount" to Schema(type = "integer"))),
+        ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced") {
+        diagnostics.filter { it.severity == DiagnosticSeverity.ERROR } shouldHaveSize 1
+      }
+
+      Then("the diagnostic identifies the undefined schema in allOf") {
+        val error = diagnostics.first { it.severity == DiagnosticSeverity.ERROR }
+        error.schemaName shouldBe "ExtendedDinosaur"
+        error.message shouldContain "Tyrannosaur"
+      }
+    }
+  }
+
+  Given("a schema with a \$ref in a oneOf entry pointing to an undefined schema") {
+    val schemas = mapOf(
+      "Dinosaur" to Schema(
+        oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced for the undefined oneOf ref") {
+        val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
+        errors shouldHaveSize 1
+        errors[0].message shouldContain "Tyrannosaur"
+      }
+    }
+  }
+
+  Given("a schema with an array property whose items \$ref is undefined") {
+    val schemas = mapOf(
+      "Tyrannosaur" to Schema(
+        type = "object",
+        properties = mapOf(
+          "prey" to Schema(type = "array", items = Schema(ref = "#/components/schemas/Triceratops")),
+        ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced for the undefined items ref") {
+        val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
+        errors shouldHaveSize 1
+        errors[0].schemaName shouldBe "Tyrannosaur"
+        errors[0].message shouldContain "Triceratops"
+      }
+    }
+  }
+
+  Given("a schema with multiple undefined \$refs") {
+    val schemas = mapOf(
+      "Tyrannosaur" to Schema(
+        type = "object",
+        properties = mapOf(
+          "prey" to Schema(ref = "#/components/schemas/Triceratops"),
+          "habitat" to Schema(ref = "#/components/schemas/Forest"),
+        ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("an error diagnostic is produced for each undefined ref") {
+        diagnostics.filter { it.severity == DiagnosticSeverity.ERROR } shouldHaveSize 2
+      }
+    }
+  }
+
   Given("a oneOf schema with an inline variant (no \$ref)") {
     val schemas = mapOf(
       "Dinosaur" to Schema(

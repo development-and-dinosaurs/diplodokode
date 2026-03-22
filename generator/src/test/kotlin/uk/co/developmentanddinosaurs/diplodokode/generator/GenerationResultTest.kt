@@ -36,6 +36,37 @@ class GenerationResultTest : BehaviorSpec({
     }
   }
 
+  Given("a spec file with an inline oneOf variant (warning, no error)") {
+    val specFile = File("src/test/resources/inline-variant-api.yaml")
+
+    When("generateFromSpecWithResult is called") {
+      val result = generator.generateFromSpecWithResult(specFile)
+
+      Then("it returns PartialSuccess") {
+        result.shouldBeInstanceOf<GenerationResult.PartialSuccess>()
+      }
+
+      Then("the warnings list is non-empty") {
+        (result as GenerationResult.PartialSuccess).warnings.isNotEmpty() shouldBe true
+      }
+
+      Then("files are still produced despite the warning") {
+        (result as GenerationResult.PartialSuccess).files.isNotEmpty() shouldBe true
+      }
+
+      Then("the warning severity is WARNING") {
+        (result as GenerationResult.PartialSuccess).warnings[0].severity shouldBe DiagnosticSeverity.WARNING
+      }
+    }
+
+    When("generateFromSpec is called") {
+      Then("it still returns files (warnings do not throw)") {
+        val files = generator.generateFromSpec(specFile)
+        files.isNotEmpty() shouldBe true
+      }
+    }
+  }
+
   Given("a spec file with an undefined \$ref") {
     val specFile = File("src/test/resources/undefined-ref-api.yaml")
 

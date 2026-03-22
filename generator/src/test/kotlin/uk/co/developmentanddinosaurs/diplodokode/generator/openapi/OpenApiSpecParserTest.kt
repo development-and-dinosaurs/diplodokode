@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import java.io.File
 
 class OpenApiSpecParserTest : BehaviorSpec({
@@ -118,6 +119,61 @@ class OpenApiSpecParserTest : BehaviorSpec({
       Then("it should parse null ref for a non-ref property") {
         val properties = spec.components!!.schemas!!["Dinosaur"]!!.properties!!
         properties["name"]!!.ref shouldBe null
+      }
+    }
+  }
+
+  Given("an OpenAPI spec file with Phase 6 schema fields") {
+    val specFile = File("src/test/resources/schema-fields-api.yaml")
+
+    When("the parser reads the file") {
+      val schema = parser.parse(specFile).components!!.schemas!!["Tyrannosaur"]!!
+      val properties = schema.properties!!
+
+      Then("it parses the schema-level title") {
+        schema.title shouldBe "Fearsome predator"
+      }
+
+      Then("it parses the schema-level deprecated flag") {
+        schema.deprecated shouldBe true
+      }
+
+      Then("it parses a complex schema-level example as Raw") {
+        schema.example.shouldBeInstanceOf<ExampleValue.Raw>()
+      }
+
+      Then("it parses the property-level title") {
+        properties["name"]!!.title shouldBe "Dinosaur name"
+      }
+
+      Then("it parses readOnly on a property") {
+        properties["name"]!!.readOnly shouldBe true
+      }
+
+      Then("it parses writeOnly on a property") {
+        properties["password"]!!.writeOnly shouldBe true
+      }
+
+      Then("it parses a scalar string example on a property") {
+        val example = properties["name"]!!.example.shouldBeInstanceOf<ExampleValue.Str>()
+        example.value shouldBe "Rex"
+      }
+
+      Then("it parses a scalar numeric example on a property") {
+        val example = properties["armLength"]!!.example
+        example.shouldBeInstanceOf<ExampleValue.Num>()
+      }
+
+      Then("readOnly is null for a property that does not declare it") {
+        properties["armLength"]!!.readOnly shouldBe null
+      }
+
+      Then("writeOnly is null for a property that does not declare it") {
+        properties["name"]!!.writeOnly shouldBe null
+      }
+
+      Then("deprecated is null for a property that does not declare it") {
+        properties["name"]!!.deprecated shouldBe null
       }
     }
   }
