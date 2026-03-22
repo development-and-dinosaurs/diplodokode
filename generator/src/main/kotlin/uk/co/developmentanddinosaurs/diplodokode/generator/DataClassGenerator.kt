@@ -24,12 +24,23 @@ private const val DEPRECATED_IN_THE_OPEN_API_SPEC_ = "Deprecated in the OpenAPI 
 
 private const val LEVEL_T_WARNING = "level = %T.WARNING"
 
+private fun String.sanitizeKdoc(): String = replace("*/", "* /")
+
+private fun backtickFence(content: String): String {
+  val maxRun = Regex("`+").findAll(content).maxOfOrNull { it.value.length } ?: 0
+  return "`".repeat(maxOf(3, maxRun + 1))
+}
+
 private fun ExampleValue.toKdoc(): String = when (this) {
-  is ExampleValue.Str -> "Example: \"${value}\"\n"
+  is ExampleValue.Str -> "Example: \"${value.sanitizeKdoc()}\"\n"
   is ExampleValue.Num -> "Example: $value\n"
   is ExampleValue.Bool -> "Example: $value\n"
   is ExampleValue.Null -> "Example: null\n"
-  is ExampleValue.Raw -> "Example:\n```\n$yaml\n```\n"
+  is ExampleValue.Raw -> {
+    val sanitized = yaml.sanitizeKdoc()
+    val fence = backtickFence(sanitized)
+    "Example:\n$fence\n$sanitized\n$fence\n"
+  }
 }
 
 internal class DataClassGenerator(

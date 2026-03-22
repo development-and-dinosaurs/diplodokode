@@ -541,6 +541,60 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a string example containing a KDoc-closing sequence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Str("value */ danger"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the */ sequence is replaced with * / in the example text") {
+        code shouldContain "value * / danger"
+        code shouldNotContain "value */ danger"
+      }
+    }
+  }
+
+  Given("a schema with a Raw example containing a triple-backtick fence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("name: Rex\n```\nnested fence\n```"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the outer fence uses more backticks than the content fence") {
+        code shouldContain "````"
+      }
+
+      Then("the content is still present") {
+        code shouldContain "name: Rex"
+      }
+    }
+  }
+
+  Given("a schema with a Raw example containing a KDoc-closing sequence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("value: foo */ bar"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the */ sequence inside the Raw example is replaced with * /") {
+        code shouldContain "value: foo * / bar"
+        code shouldNotContain "value: foo */ bar"
+      }
+    }
+  }
+
   Given("a schema with a property that has a string example") {
     val schema = Schema(
       type = "object",
