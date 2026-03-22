@@ -11,7 +11,35 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
   private val moduleGenerator = SerializersModuleGenerator(config)
   private val unionInterfaceGenerator = UnionInterfaceGenerator(config)
 
+  /**
+   * Generates Kotlin files from the given OpenAPI spec file.
+   *
+   * Throws [IllegalStateException] if generation fails. For structured error handling,
+   * use [generateFromSpecWithResult] instead.
+   */
   fun generateFromSpec(specFile: File): List<FileSpec> {
+    return when (val result = generateFromSpecWithResult(specFile)) {
+      is GenerationResult.Success -> result.files
+      is GenerationResult.PartialSuccess -> result.files
+      is GenerationResult.Failure -> throw IllegalStateException(
+          result.errors.joinToString("\n") { "[${it.schemaName}] ${it.message}" }
+      )
+    }
+  }
+
+  /**
+   * Generates Kotlin files from the given OpenAPI spec file, returning a structured result.
+   *
+   * Returns [GenerationResult.Success] when generation completes without issues,
+   * [GenerationResult.PartialSuccess] when generation completes with warnings, or
+   * [GenerationResult.Failure] when generation cannot proceed.
+   */
+  fun generateFromSpecWithResult(specFile: File): GenerationResult {
+    val files = generateFiles(specFile)
+    return GenerationResult.Success(files)
+  }
+
+  private fun generateFiles(specFile: File): List<FileSpec> {
     val openApiSpec = parser.parse(specFile)
     val schemas = openApiSpec.components?.schemas ?: return emptyList()
     val (resolvedSchemas, implementedInterfaces, discriminatorEnums, discriminatorOverrides, interfacePropertyNames) = resolver.resolve(schemas)
