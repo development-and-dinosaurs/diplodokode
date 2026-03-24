@@ -54,6 +54,23 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with a title and description") {
+    val schema = Schema(
+      title = "Dinosaur type",
+      description = "A long-necked herbivorous dinosaur",
+      oneOf = listOf(Schema(ref = "#/components/schemas/Diplodocus")),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Sauropod", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("both title and description appear in the KDoc") {
+        code shouldContain "Dinosaur type"
+        code shouldContain "A long-necked herbivorous dinosaur"
+      }
+    }
+  }
+
   Given("a schema with a description") {
     val schema = Schema(
       description = "A long-necked herbivorous dinosaur",
@@ -266,6 +283,23 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
 
       Then("a generic warning note appears in the KDoc") {
         code shouldContain "inline oneOf variant with no properties is not supported"
+      }
+    }
+  }
+
+  Given("a deprecated sealed interface schema") {
+    val schema = Schema(
+      deprecated = true,
+      oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("the interface is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
       }
     }
   }

@@ -13,11 +13,35 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asTypeName
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.ExampleValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private const val JAVA_TIME = "java.time"
 private const val KOTLIN_UUID = "kotlin.uuid"
 private const val KOTLINX_DATETIME = "kotlinx.datetime"
+
+private const val DEPRECATED_IN_THE_OPEN_API_SPEC_ = "Deprecated in the OpenAPI spec."
+
+private const val LEVEL_T_WARNING = "level = %T.WARNING"
+
+private fun String.sanitizeKdoc(): String = replace("*/", "* /")
+
+private fun backtickFence(content: String): String {
+  val maxRun = Regex("`+").findAll(content).maxOfOrNull { it.value.length } ?: 0
+  return "`".repeat(maxOf(3, maxRun + 1))
+}
+
+private fun ExampleValue.toKdoc(): String = when (this) {
+  is ExampleValue.Str -> "Example: \"${value.sanitizeKdoc()}\"\n"
+  is ExampleValue.Num -> "Example: $value\n"
+  is ExampleValue.Bool -> "Example: $value\n"
+  is ExampleValue.Null -> "Example: null\n"
+  is ExampleValue.Raw -> {
+    val sanitized = yaml.sanitizeKdoc()
+    val fence = backtickFence(sanitized)
+    "Example:\n$fence\n$sanitized\n$fence\n"
+  }
+}
 
 internal class DataClassGenerator(
     private val config: GeneratorConfig,
@@ -75,7 +99,17 @@ internal class DataClassGenerator(
     val dataClassBuilder = TypeSpec.classBuilder(className)
         .addModifiers(KModifier.DATA)
         .also { builder ->
-          schema.description?.let { builder.addKdoc("$it\n") }
+          if (schema.deprecated == true) {
+            builder.addAnnotation(
+                AnnotationSpec.builder(Deprecated::class)
+                    .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+                    .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+                    .build()
+            )
+          }
+          listOfNotNull(schema.title, schema.description).joinToString("\n\n")
+              .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
+          schema.example?.let { builder.addKdoc(it.toKdoc()) }
           if (hasForbiddenAdditionalProperties) {
             builder.addKdoc("NOTE: additional properties are forbidden by the OpenAPI spec.\n")
           }
@@ -143,7 +177,7 @@ internal class DataClassGenerator(
           }
           ?.associate { (propName, propValue) ->
             val enumName = config.namingStrategy.className(propName)
-            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!))
+            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!, deprecated = propValue.deprecated))
             propName to ClassName(config.packageName, enumName)
           } ?: emptyMap()
 
@@ -181,7 +215,7 @@ internal class DataClassGenerator(
     val propertyName = config.namingStrategy.propertyName(propName)
     val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
     return when {
-      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride)
+      matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride, propValue.deprecated)
       propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
       else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
     }
@@ -191,13 +225,21 @@ internal class DataClassGenerator(
       propertyName: String,
       propName: String,
       discriminatorOverride: DiscriminatorOverride,
+      deprecated: Boolean? = null,
   ): PropertySpec {
     val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
-    return PropertySpec.builder(propertyName, enumType)
+    val builder = PropertySpec.builder(propertyName, enumType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
-        .applySerialName(propName, propertyName)
-        .build()
+    if (deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+    }
+    return builder.applySerialName(propName, propertyName).build()
   }
 
   private fun buildOverrideProperty(
@@ -212,6 +254,27 @@ internal class DataClassGenerator(
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
+    if (propValue.readOnly == true) {
+      builder.addKdoc("NOTE: This property is read-only in the OpenAPI spec; do not include it in request bodies.\n")
+    }
+    if (propValue.writeOnly == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", "This property is write-only in the OpenAPI spec and will not appear in responses.")
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+      builder.addKdoc("NOTE: This property is write-only in the OpenAPI spec and will not appear in responses.\n")
+    }
+    if (propValue.deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+    }
+    propValue.example?.let { builder.addKdoc(it.toKdoc()) }
     if (typeResolver.containsAny(kotlinType)) {
       config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }
     }
@@ -230,7 +293,9 @@ internal class DataClassGenerator(
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
-    propValue.description?.let { builder.addKdoc("$it\n") }
+    listOfNotNull(propValue.title, propValue.description).joinToString("\n\n")
+        .takeIf { it.isNotEmpty() }?.let { builder.addKdoc("$it\n") }
+    propValue.example?.let { builder.addKdoc(it.toKdoc()) }
     val baseKotlinType = kotlinType.copy(nullable = false)
     val strDefault = propValue.default as? DefaultValue.Str
     if (strDefault != null && enumClassNames[propName] == null &&
@@ -252,6 +317,26 @@ internal class DataClassGenerator(
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
       builder.addKdoc("NOTE: items have an enum constraint [$values] — define as a \$ref schema for a typed List.\n")
+    }
+    if (propValue.readOnly == true) {
+      builder.addKdoc("NOTE: This property is read-only in the OpenAPI spec; do not include it in request bodies.\n")
+    }
+    if (propValue.writeOnly == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", "This property is write-only in the OpenAPI spec and will not appear in responses.")
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
+      builder.addKdoc("NOTE: This property is write-only in the OpenAPI spec and will not appear in responses.\n")
+    }
+    if (propValue.deprecated == true) {
+      builder.addAnnotation(
+          AnnotationSpec.builder(Deprecated::class)
+              .addMember("%S", DEPRECATED_IN_THE_OPEN_API_SPEC_)
+              .addMember(LEVEL_T_WARNING, DeprecationLevel::class)
+              .build()
+      )
     }
     if (typeResolver.containsAny(kotlinType)) {
       config.serialisationStrategy?.anyPropertyAnnotation()?.let { builder.addAnnotation(it) }

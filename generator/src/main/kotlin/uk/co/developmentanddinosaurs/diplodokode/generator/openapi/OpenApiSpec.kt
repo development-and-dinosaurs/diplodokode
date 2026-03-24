@@ -27,16 +27,21 @@ data class Schema(
   val allOf: List<Schema>? = null,
   val anyOf: List<Schema>? = null,
   val default: DefaultValue? = null,
+  val deprecated: Boolean? = null,
   val description: String? = null,
   val discriminator: Discriminator? = null,
   val enum: List<String>? = null,
+  val example: ExampleValue? = null,
   val format: String? = null,
   val items: Schema? = null,
   val nullable: Boolean? = null,
   val oneOf: List<Schema>? = null,
   val properties: Map<String, Schema>? = null,
+  val readOnly: Boolean? = null,
   val required: List<String>? = null,
+  val title: String? = null,
   val type: String? = null,
+  val writeOnly: Boolean? = null,
 )
 
 /**
@@ -108,6 +113,46 @@ internal object DefaultValueSerializer : KSerializer<DefaultValue> {
       is Number -> DefaultValue.Num(raw)
       is String -> DefaultValue.Str(raw)
       else -> DefaultValue.Null
+    }
+  }
+}
+
+/**
+ * Represents the OpenAPI `example` field on a schema or property, which can be a scalar value
+ * or a complex object/array (stored as re-serialized YAML).
+ */
+@Serializable(with = ExampleValueSerializer::class)
+sealed class ExampleValue {
+  data class Str(val value: String) : ExampleValue()
+  data class Num(val value: Number) : ExampleValue()
+  data class Bool(val value: Boolean) : ExampleValue()
+  data object Null : ExampleValue()
+  data class Raw(val yaml: String) : ExampleValue()
+}
+
+internal object ExampleValueSerializer : KSerializer<ExampleValue> {
+  override val descriptor: SerialDescriptor = YamlDynamicSerializer.descriptor
+
+  @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+  override fun serialize(encoder: Encoder, value: ExampleValue) {
+    when (value) {
+      is ExampleValue.Str -> encoder.encodeString(value.value)
+      is ExampleValue.Num -> encoder.encodeDouble(value.value.toDouble())
+      is ExampleValue.Bool -> encoder.encodeBoolean(value.value)
+      is ExampleValue.Null -> encoder.encodeNull()
+      is ExampleValue.Raw -> encoder.encodeString(value.yaml)
+    }
+  }
+
+  override fun deserialize(decoder: Decoder): ExampleValue {
+    val raw = decoder.decodeSerializableValue(YamlDynamicSerializer)
+    return when (raw) {
+      is Boolean -> ExampleValue.Bool(raw)
+      is Number -> ExampleValue.Num(raw)
+      is String -> ExampleValue.Str(raw)
+      is Map<*, *> -> ExampleValue.Raw(Yaml.encodeToString(YamlDynamicSerializer, raw))
+      is List<*> -> ExampleValue.Raw(Yaml.encodeToString(YamlDynamicSerializer, raw))
+      else -> ExampleValue.Null
     }
   }
 }

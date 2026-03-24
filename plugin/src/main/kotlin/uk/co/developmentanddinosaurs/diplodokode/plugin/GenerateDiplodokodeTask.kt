@@ -14,10 +14,12 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.GradleException
 import uk.co.developmentanddinosaurs.diplodokode.generator.AllNonNullableStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.AllNullableStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.DefaultNamingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.DiplodokodeGenerator
+import uk.co.developmentanddinosaurs.diplodokode.generator.GenerationResult
 import uk.co.developmentanddinosaurs.diplodokode.generator.GeneratorConfig
 import uk.co.developmentanddinosaurs.diplodokode.generator.JavaTypeMappingStrategy
 import uk.co.developmentanddinosaurs.diplodokode.generator.KotlinMultiplatformTypeMappingStrategy
@@ -82,22 +84,32 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
     val specFile = inputFile.get().asFile
     val outputDirectory = outputDir.get().asFile
 
-    try {
-      val generatedFiles = generator.generateFromSpec(specFile)
-
-      outputDirectory.mkdirs()
-
-      generatedFiles.forEach { fileSpec ->
-        fileSpec.writeTo(outputDirectory)
-        println("Generated: ${fileSpec.name}")
+    when (val result = generator.generateFromSpecWithResult(specFile)) {
+      is GenerationResult.Success -> writeFiles(result.files, outputDirectory)
+      is GenerationResult.PartialSuccess -> {
+        result.warnings.forEach { diag ->
+          logger.warn("[${diag.schemaName}] ${diag.location}: ${diag.message}")
+        }
+        writeFiles(result.files, outputDirectory)
       }
-
-      println("✅ Successfully generated ${generatedFiles.size} files in ${outputDirectory.absolutePath}")
-
-    } catch (e: Exception) {
-      println("❌ Failed to run generation: ${e.message}")
-      throw e
+      is GenerationResult.Failure -> {
+        result.errors.forEach { diag ->
+          logger.error("[${diag.schemaName}] ${diag.location}: ${diag.message}")
+        }
+        throw GradleException(
+            "Diplodokode generation failed with ${result.errors.size} error(s). See above for details."
+        )
+      }
     }
+  }
+
+  private fun writeFiles(files: List<com.squareup.kotlinpoet.FileSpec>, outputDirectory: java.io.File) {
+    outputDirectory.mkdirs()
+    files.forEach { fileSpec ->
+      fileSpec.writeTo(outputDirectory)
+      logger.lifecycle("Generated: ${fileSpec.name}")
+    }
+    logger.lifecycle("Successfully generated ${files.size} files in ${outputDirectory.absolutePath}")
   }
 
   private fun buildTypeMappingStrategy(): TypeMappingStrategy {

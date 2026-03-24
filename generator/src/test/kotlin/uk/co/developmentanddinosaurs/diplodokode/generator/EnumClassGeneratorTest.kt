@@ -58,6 +58,39 @@ class EnumClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("a top-level enum schema with a title and description") {
+    val generator = EnumClassGenerator(GeneratorConfig())
+
+    When("generating a top-level enum") {
+      val schema = Schema(
+        enum = listOf("triassic", "jurassic"),
+        title = "Geological era",
+        description = "The era in which the dinosaur lived.",
+      )
+      val code = generator.generateTopLevelEnum("Era", schema).toString()
+
+      Then("both title and description appear in the KDoc") {
+        code shouldContain "Geological era"
+        code shouldContain "The era in which the dinosaur lived."
+      }
+    }
+  }
+
+  Given("a deprecated top-level enum schema") {
+    val generator = EnumClassGenerator(GeneratorConfig())
+
+    When("generating a top-level enum") {
+      val schema = Schema(enum = listOf("triassic", "jurassic"), deprecated = true)
+      val code = generator.generateTopLevelEnum("Era", schema).toString()
+
+      Then("the enum class is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+    }
+  }
+
   Given("an enum generator with a kotlinx serialisation strategy") {
     val generator = EnumClassGenerator(GeneratorConfig(serialisationStrategy = KotlinxSerialisationStrategy))
 

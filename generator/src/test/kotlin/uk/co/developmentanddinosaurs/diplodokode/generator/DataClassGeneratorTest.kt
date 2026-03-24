@@ -1,10 +1,12 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.DefaultValue
+import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.ExampleValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 class DataClassGeneratorTest : BehaviorSpec({
@@ -421,6 +423,285 @@ class DataClassGeneratorTest : BehaviorSpec({
 
       Then("a KDoc note states additional properties are forbidden") {
         code shouldContain "additional properties are forbidden by the OpenAPI spec"
+      }
+    }
+  }
+
+  Given("a schema with a title but no description") {
+    val schema = Schema(
+      type = "object",
+      title = "A fearsome predator",
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the title appears in the KDoc") {
+        code shouldContain "A fearsome predator"
+      }
+    }
+  }
+
+  Given("a schema with both a title and a description") {
+    val schema = Schema(
+      type = "object",
+      title = "Tyrannosaur",
+      description = "A large bipedal carnivore from the Cretaceous period.",
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the title and description both appear in the KDoc") {
+        code shouldContain "Tyrannosaur"
+        code shouldContain "A large bipedal carnivore from the Cretaceous period."
+      }
+
+      Then("the title appears before the description") {
+        val titleIdx = code.indexOf("Tyrannosaur")
+        val descIdx = code.indexOf("A large bipedal carnivore")
+        assert(titleIdx < descIdx) { "Expected title before description" }
+      }
+    }
+  }
+
+  Given("a schema with a property that has both a title and a description") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "armLength" to Schema(type = "number", title = "Arm length", description = "Length of the forelimb in metres."),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("both the property title and description appear in the KDoc") {
+        code shouldContain "Arm length"
+        code shouldContain "Length of the forelimb in metres."
+      }
+    }
+  }
+
+  Given("a schema with a scalar string example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Str("rex"),
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears quoted in the class KDoc") {
+        code shouldContain "Example: \"rex\""
+      }
+    }
+  }
+
+  Given("a schema with a numeric example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Num(65),
+      properties = mapOf("age" to Schema(type = "integer")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the numeric example appears unquoted in the class KDoc") {
+        code shouldContain "Example: 65"
+      }
+    }
+  }
+
+  Given("a schema with a complex object example") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("name: Rex\nage: 65"),
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "age" to Schema(type = "integer"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears in a code block in the class KDoc") {
+        code shouldContain "Example:"
+        code shouldContain "name: Rex"
+        code shouldContain "age: 65"
+      }
+    }
+  }
+
+  Given("a schema with a string example containing a KDoc-closing sequence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Str("value */ danger"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the */ sequence is replaced with * / in the example text") {
+        code shouldContain "value * / danger"
+        code shouldNotContain "value */ danger"
+      }
+    }
+  }
+
+  Given("a schema with a Raw example containing a triple-backtick fence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("name: Rex\n```\nnested fence\n```"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the outer fence uses more backticks than the content fence") {
+        code shouldContain "````"
+      }
+
+      Then("the content is still present") {
+        code shouldContain "name: Rex"
+      }
+    }
+  }
+
+  Given("a schema with a Raw example containing a KDoc-closing sequence") {
+    val schema = Schema(
+      type = "object",
+      example = ExampleValue.Raw("value: foo */ bar"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator runs") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the */ sequence inside the Raw example is replaced with * /") {
+        code shouldContain "value: foo * / bar"
+        code shouldNotContain "value: foo */ bar"
+      }
+    }
+  }
+
+  Given("a schema with a property that has a string example") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string", example = ExampleValue.Str("Rex")),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the example appears quoted in the property KDoc") {
+        code shouldContain "Example: \"Rex\""
+      }
+    }
+  }
+
+  Given("a schema with a readOnly property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "id" to Schema(type = "string", readOnly = true),
+        "name" to Schema(type = "string"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the readOnly property has a KDoc note") {
+        code shouldContain "read-only in the OpenAPI spec"
+      }
+
+      Then("the non-readOnly property has no such note") {
+        // The note should appear exactly once (for 'id'), not for 'name'
+        code.split("read-only in the OpenAPI spec").size shouldBe 2
+        code shouldNotContain "val name: String?\n  read-only"
+      }
+    }
+  }
+
+  Given("a schema with a writeOnly property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "password" to Schema(type = "string", writeOnly = true),
+        "username" to Schema(type = "string"),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Credentials", schema).toString()
+
+      Then("the writeOnly property is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "write-only in the OpenAPI spec and will not appear in responses"
+      }
+
+      Then("the writeOnly property has a KDoc note") {
+        code shouldContain "NOTE: This property is write-only"
+      }
+
+      Then("the non-writeOnly property is unaffected") {
+        code shouldContain "val username: String"
+      }
+    }
+  }
+
+  Given("a deprecated schema") {
+    val schema = Schema(
+      type = "object",
+      deprecated = true,
+      required = listOf("name"),
+      properties = mapOf("name" to Schema(type = "string")),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the class is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+    }
+  }
+
+  Given("a schema with a deprecated property") {
+    val schema = Schema(
+      type = "object",
+      properties = mapOf(
+        "name" to Schema(type = "string"),
+        "armLength" to Schema(type = "number", deprecated = true),
+      ),
+    )
+
+    When("the generator produces the data class") {
+      val code = generator().generate("Tyrannosaur", schema).toString()
+
+      Then("the deprecated property is annotated with @Deprecated") {
+        code shouldContain "@Deprecated("
+        code shouldContain "\"Deprecated in the OpenAPI spec.\""
+        code shouldContain "level = DeprecationLevel.WARNING"
+      }
+
+      Then("the non-deprecated property is not annotated") {
+        code shouldContain "val name: String"
       }
     }
   }
