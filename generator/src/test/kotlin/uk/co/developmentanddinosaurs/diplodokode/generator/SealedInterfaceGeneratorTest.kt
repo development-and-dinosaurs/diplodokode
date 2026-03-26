@@ -149,8 +149,8 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
         code shouldNotContain "val type:"
       }
 
-      Then("no @JsonClassDiscriminator annotation is present") {
-        code shouldNotContain "JsonClassDiscriminator"
+      Then("@JsonClassDiscriminator annotation is present with the property name") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
       }
     }
   }

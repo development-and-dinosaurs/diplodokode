@@ -836,8 +836,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         code shouldContain "@Serializable"
       }
 
-      Then("no @JsonClassDiscriminator annotation is present") {
-        code shouldNotContain "JsonClassDiscriminator"
+      Then("@JsonClassDiscriminator annotation is present with the property name") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
       }
 
       Then("no nested Type enum is generated") {
@@ -1147,9 +1147,14 @@ class KotlinClassGeneratorTest : BehaviorSpec({
   }
 
   Given("a schema whose only property is the discriminator, with ANNOTATION strategy and no discriminatorAnnotation") {
+    val strategyWithoutDiscriminatorAnnotation = object : SerializationStrategy {
+      override val classAnnotation = com.squareup.kotlinpoet.ClassName("com.example", "Serializable")
+      override fun enumConstantAnnotation(rawValue: String) = null
+      override fun propertyAnnotation(specName: String) = null
+    }
     val annotationGenerator = KotlinClassGenerator(
         GeneratorConfig(
-            serialisationStrategy = KotlinxSerialisationStrategy,
+            serialisationStrategy = strategyWithoutDiscriminatorAnnotation,
             polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
         )
     )

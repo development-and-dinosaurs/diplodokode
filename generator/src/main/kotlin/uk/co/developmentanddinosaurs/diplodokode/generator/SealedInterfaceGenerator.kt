@@ -59,7 +59,7 @@ internal class SealedInterfaceGenerator(
     }
 
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
-    if (useSerialisedDiscriminator && config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
+    if (useSerialisedDiscriminator) {
       config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
     return fileBuilder.addType(interfaceBuilder.build()).build()
@@ -105,10 +105,8 @@ internal class SealedInterfaceGenerator(
   }
 
   private fun addSerialisedDiscriminator(interfaceBuilder: TypeSpec.Builder, discriminatorEnum: DiscriminatorEnum) {
-    if (config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
-      config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
-          ?.let { interfaceBuilder.addAnnotation(it) }
-    }
+    config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
+        ?.let { interfaceBuilder.addAnnotation(it) }
   }
 
   private fun addFallbackDiscriminator(interfaceBuilder: TypeSpec.Builder, schema: Schema) {

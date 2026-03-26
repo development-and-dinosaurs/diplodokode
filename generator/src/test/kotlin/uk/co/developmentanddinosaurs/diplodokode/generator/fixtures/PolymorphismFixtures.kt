@@ -1,7 +1,10 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package uk.co.developmentanddinosaurs.diplodokode.generator.fixtures
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -16,6 +19,7 @@ import kotlinx.serialization.modules.subclass
  */
 
 @Serializable
+@JsonClassDiscriminator("type")
 sealed interface Sauropod
 
 @Serializable
@@ -34,5 +38,28 @@ val sauropodModule = SerializersModule {
     polymorphic(Sauropod::class) {
         subclass(Diplodocus::class)
         subclass(Brachiosaurus::class)
+    }
+}
+
+@Serializable
+@JsonClassDiscriminator("kind")
+sealed interface Theropod
+
+@Serializable
+@SerialName("velociraptor")
+data class Velociraptor(
+    val packSize: Int,
+) : Theropod
+
+@Serializable
+@SerialName("allosaurus")
+data class Allosaurus(
+    val territorySize: Double,
+) : Theropod
+
+val theropodModule = SerializersModule {
+    polymorphic(Theropod::class) {
+        subclass(Velociraptor::class)
+        subclass(Allosaurus::class)
     }
 }

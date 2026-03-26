@@ -95,6 +95,17 @@ data object KotlinxSerialisationStrategy : SerializationStrategy {
     override fun variantAnnotation(rawValue: String): AnnotationSpec =
         AnnotationSpec.builder(KOTLINX_SERIAL_NAME).addMember("%S", rawValue).build()
 
+    override fun discriminatorAnnotation(propertyName: String): AnnotationSpec =
+        AnnotationSpec.builder(ClassName("kotlinx.serialization.json", "JsonClassDiscriminator"))
+            .addMember("%S", propertyName)
+            .build()
+
+    override fun discriminatorFileAnnotation(): AnnotationSpec =
+        AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
+            .addMember("%T::class", ClassName(KOTLINX_SERIALIZATION, "ExperimentalSerializationApi"))
+            .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
+            .build()
+
     override fun anyPropertyAnnotation(): AnnotationSpec =
         AnnotationSpec.builder(ClassName(KOTLINX_SERIALIZATION, "Contextual")).build()
 }
