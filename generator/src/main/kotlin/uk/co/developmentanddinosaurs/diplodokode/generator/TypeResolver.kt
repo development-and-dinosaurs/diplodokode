@@ -20,7 +20,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
   ): TypeName {
     val baseType =
         when {
-          propValue.ref != null -> ClassName(config.packageName, config.namingStrategy.className(propValue.ref.substringAfterLast("/")))
+          propValue.ref != null -> resolveRef(propValue.ref)
           propValue.type == "array" -> {
             val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
@@ -44,13 +44,19 @@ internal class TypeResolver(private val config: GeneratorConfig) {
 
   fun resolveItemType(items: Schema): TypeName =
       when {
-        items.ref != null -> ClassName(config.packageName, config.namingStrategy.className(items.ref.substringAfterLast("/")))
+        items.ref != null -> resolveRef(items.ref)
         items.type == "array" -> {
           val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
           List::class.asTypeName().parameterizedBy(elementType)
         }
         else -> mapTypeToKotlin(items.type, items.format)
       }
+
+  private fun resolveRef(ref: String): ClassName {
+    val schemaName = ref.substringAfterLast("/")
+    return config.schemaOverrides[schemaName]
+        ?: ClassName(config.packageName, config.namingStrategy.className(schemaName))
+  }
 
   fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
       openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()

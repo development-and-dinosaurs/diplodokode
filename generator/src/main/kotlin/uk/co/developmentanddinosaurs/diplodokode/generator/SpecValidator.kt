@@ -5,10 +5,11 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 internal class SpecValidator {
 
-  fun validate(schemas: Map<String, Schema>): List<GenerationDiagnostic> {
+  fun validate(schemas: Map<String, Schema>, knownExternalNames: Set<String> = emptySet()): List<GenerationDiagnostic> {
+    val allKnownNames = schemas.keys + knownExternalNames
     val diagnostics = mutableListOf<GenerationDiagnostic>()
     schemas.forEach { (name, schema) ->
-      checkRefs(name, schema, schemas, diagnostics)
+      checkRefs(name, schema, allKnownNames, diagnostics)
       checkInlineVariants(name, schema, diagnostics)
       checkArraysWithoutItems(name, schema, diagnostics)
       checkDiscriminatorCoverage(name, schema, schemas, diagnostics)
@@ -19,11 +20,11 @@ internal class SpecValidator {
   private fun checkRefs(
       schemaName: String,
       schema: Schema,
-      allSchemas: Map<String, Schema>,
+      allKnownNames: Set<String>,
       diagnostics: MutableList<GenerationDiagnostic>,
   ) {
     collectRefs(schema).forEach { (location, refName) ->
-      if (refName !in allSchemas) {
+      if (refName !in allKnownNames) {
         diagnostics.add(
             GenerationDiagnostic(
                 schemaName = schemaName,

@@ -28,4 +28,14 @@ data class GeneratorConfig(
     val modulePackage: String? = null,
     /** File and property name for the generated serializers module. Defaults to `DiplodokodeModule`. */
     val moduleName: String = "DiplodokodeModule",
+    /**
+     * Schema names to skip generation for, mapped to the [com.squareup.kotlinpoet.ClassName] that
+     * should be used when other schemas reference them via `$ref`.
+     *
+     * Use this when you want to provide your own implementation of a schema rather than generating
+     * one. The schema should still be present in the OpenAPI spec for documentation and validation
+     * purposes, but Diplodokode will use the provided class wherever a `$ref` to that schema name
+     * appears.
+     */
+    val schemaOverrides: Map<String, com.squareup.kotlinpoet.ClassName> = emptyMap(),
 )
