@@ -36,8 +36,8 @@ class TypeMappingStrategyTest : BehaviorSpec({
     }
 
     When("resolving string formats") {
-      Then("date-time maps to kotlinx.datetime.Instant") {
-        strategy.resolve("string", "date-time") shouldBe ClassName("kotlinx.datetime", "Instant")
+      Then("date-time maps to kotlin.time.Instant") {
+        strategy.resolve("string", "date-time") shouldBe ClassName("kotlin.time", "Instant")
       }
       Then("date maps to kotlinx.datetime.LocalDate") {
         strategy.resolve("string", "date") shouldBe ClassName("kotlinx.datetime", "LocalDate")

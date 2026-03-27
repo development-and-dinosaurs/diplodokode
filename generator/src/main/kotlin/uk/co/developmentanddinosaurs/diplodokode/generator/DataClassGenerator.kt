@@ -17,6 +17,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.ExampleValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private const val JAVA_TIME = "java.time"
+private const val KOTLIN_TIME = "kotlin.time"
 private const val KOTLIN_UUID = "kotlin.uuid"
 private const val KOTLINX_DATETIME = "kotlinx.datetime"
 
@@ -377,10 +378,10 @@ internal class DataClassGenerator(
     private fun parseCall(type: ClassName) = { v: String -> CodeBlock.of("%T.parse(%S)", type, v) }
 
     val parseableDefaults: Map<TypeName, (String) -> CodeBlock> = mapOf(
-        ClassName(KOTLINX_DATETIME, "Instant")  to parseCall(ClassName(KOTLINX_DATETIME, "Instant")),
+        ClassName(KOTLIN_TIME, "Instant")        to parseCall(ClassName(KOTLIN_TIME, "Instant")),
         ClassName(KOTLINX_DATETIME, "LocalDate") to parseCall(ClassName(KOTLINX_DATETIME, "LocalDate")),
         ClassName(KOTLINX_DATETIME, "LocalTime") to parseCall(ClassName(KOTLINX_DATETIME, "LocalTime")),
-        ClassName("kotlin.time", "Duration")       to parseCall(ClassName("kotlin.time", "Duration")),
+        ClassName(KOTLIN_TIME, "Duration")       to parseCall(ClassName("kotlin.time", "Duration")),
         ClassName(KOTLIN_UUID, "Uuid")           to parseCall(ClassName(KOTLIN_UUID, "Uuid")),
         ClassName(JAVA_TIME, "Instant")          to parseCall(ClassName(JAVA_TIME, "Instant")),
         ClassName(JAVA_TIME, "LocalDate")        to parseCall(ClassName(JAVA_TIME, "LocalDate")),

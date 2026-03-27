@@ -37,8 +37,8 @@ class TypeResolverTest : BehaviorSpec({
   }
 
   Given("a string type with a format") {
-    Then("date-time maps to kotlinx Instant") {
-      resolver.mapTypeToKotlin("string", "date-time").toString() shouldBe "kotlinx.datetime.Instant"
+    Then("date-time maps to kotlin.time.Instant") {
+      resolver.mapTypeToKotlin("string", "date-time").toString() shouldBe "kotlin.time.Instant"
     }
     Then("date maps to kotlinx LocalDate") {
       resolver.mapTypeToKotlin("string", "date").toString() shouldBe "kotlinx.datetime.LocalDate"

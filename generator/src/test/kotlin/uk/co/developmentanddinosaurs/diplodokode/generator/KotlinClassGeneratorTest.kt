@@ -593,8 +593,9 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a data class") {
       val code = kmpGenerator.generateFromSchema("Tyrannosaur", schema).toString()
 
-      Then("it should use kotlinx.datetime.Instant") {
-        code shouldContain "kotlinx.datetime.Instant"
+      Then("it should use kotlin.time.Instant") {
+        code shouldContain "kotlin.time.Instant"
+        code shouldNotContain "kotlinx.datetime.Instant"
         code shouldNotContain "java.time"
       }
     }

@@ -37,7 +37,7 @@ private const val KOTLIN_UUID = "kotlin.uuid"
 class KotlinMultiplatformTypeMappingStrategy : MapBasedTypeMappingStrategy() {
   override val formatMappings: Map<String, Map<String, TypeName>> = mapOf(
       "string" to mapOf(
-          "date-time" to ClassName(KOTLINX_DATETIME, "Instant"),
+          "date-time" to ClassName(KOTLIN_TIME, "Instant"),
           "date"      to ClassName(KOTLINX_DATETIME, "LocalDate"),
           "time"      to ClassName(KOTLINX_DATETIME, "LocalTime"),
           "duration"  to ClassName(KOTLIN_TIME, "Duration"),
