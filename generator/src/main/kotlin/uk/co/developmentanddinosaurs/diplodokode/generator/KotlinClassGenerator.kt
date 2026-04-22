@@ -18,12 +18,13 @@ class KotlinClassGenerator(config: GeneratorConfig = GeneratorConfig()) {
       discriminatorEnum: DiscriminatorEnum? = null,
       discriminatorOverrides: List<DiscriminatorOverride> = emptyList(),
       interfacePropertyNames: Set<String> = emptySet(),
+      allImplementedInterfaces: Map<String, List<String>> = emptyMap(),
   ): FileSpec =
       when {
         !schema.enum.isNullOrEmpty() -> enumClassGenerator.generateTopLevelEnum(name, schema)
         !schema.oneOf.isNullOrEmpty() && isPrimitiveUnion(schema.oneOf) -> primitiveUnionGenerator.generate(name, schema)
-        !schema.oneOf.isNullOrEmpty() -> sealedInterfaceGenerator.generate(name, schema, schema.oneOf, "oneOf", discriminatorEnum, implementedInterfaces)
-        !schema.anyOf.isNullOrEmpty() -> sealedInterfaceGenerator.generate(name, schema, schema.anyOf, "anyOf", discriminatorEnum, implementedInterfaces)
-        else -> dataClassGenerator.generate(name, schema, implementedInterfaces, discriminatorOverrides, interfacePropertyNames)
+        !schema.oneOf.isNullOrEmpty() -> sealedInterfaceGenerator.generate(name, schema, schema.oneOf, "oneOf", discriminatorEnum, implementedInterfaces, allImplementedInterfaces)
+        !schema.anyOf.isNullOrEmpty() -> sealedInterfaceGenerator.generate(name, schema, schema.anyOf, "anyOf", discriminatorEnum, implementedInterfaces, allImplementedInterfaces)
+        else -> dataClassGenerator.generate(name, schema, implementedInterfaces, discriminatorOverrides, interfacePropertyNames, allImplementedInterfaces)
       }
 }

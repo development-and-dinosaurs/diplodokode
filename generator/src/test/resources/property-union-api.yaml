@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Property-Level Union API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      oneOf:
+        - $ref: '#/components/schemas/Tyrannosaur'
+        - $ref: '#/components/schemas/Triceratops'
+      discriminator:
+        propertyName: type
+    Tyrannosaur:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [tyrannosaur]
+    Triceratops:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [triceratops]
+    Pack:
+      type: object
+      description: A pack of dinosaurs
+      required: [leader]
+      properties:
+        leader:
+          type: string
+    Herd:
+      type: object
+      required: [members, alpha, escort]
+      properties:
+        members:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/Tyrannosaur'
+              - $ref: '#/components/schemas/Triceratops'
+        alpha:
+          oneOf:
+            - $ref: '#/components/schemas/Tyrannosaur'
+            - $ref: '#/components/schemas/Triceratops'
+        escort:
+          allOf:
+            - $ref: '#/components/schemas/Pack'
+          description: Supporting pack travelling with the herd

@@ -20,6 +20,7 @@ internal class SealedInterfaceGenerator(
       keyword: String,
       discriminatorEnum: DiscriminatorEnum?,
       implementedInterfaces: List<String> = emptyList(),
+      allImplementedInterfaces: Map<String, List<String>> = emptyMap(),
   ): FileSpec {
     val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
@@ -47,7 +48,7 @@ internal class SealedInterfaceGenerator(
     applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
 
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
-    addAbstractProperties(interfaceBuilder, schema, discriminatorPropName)
+    addAbstractProperties(interfaceBuilder, schema, discriminatorPropName, allImplementedInterfaces)
 
     variants.filter { it.ref == null }.forEach { variant ->
       if (variant.properties.isNullOrEmpty()) {
@@ -126,13 +127,14 @@ internal class SealedInterfaceGenerator(
       interfaceBuilder: TypeSpec.Builder,
       schema: Schema,
       discriminatorPropName: String?,
+      allImplementedInterfaces: Map<String, List<String>>,
   ) {
     schema.properties
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
           val propertyName = config.namingStrategy.propertyName(propName)
           val isNullable = config.nullabilityStrategy.isNullable(propName, propSchema, schema.required?.toSet() ?: emptySet())
-          val kotlinType = typeResolver.resolveType(propName, propSchema, isNullable, emptyMap())
+          val kotlinType = typeResolver.resolveType(propName, propSchema, isNullable, emptyMap(), allImplementedInterfaces)
           val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
           if (!propSchema.enum.isNullOrEmpty()) {
             val values = propSchema.enum.joinToString(", ")

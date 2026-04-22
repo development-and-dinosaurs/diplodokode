@@ -67,6 +67,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
               discriminatorEnums[name],
               discriminatorOverrides[name] ?: emptyList(),
               interfacePropertyNames[name] ?: emptySet(),
+              implementedInterfaces,
           )
         }
 

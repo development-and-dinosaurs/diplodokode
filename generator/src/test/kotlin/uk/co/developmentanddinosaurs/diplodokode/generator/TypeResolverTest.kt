@@ -190,6 +190,128 @@ class TypeResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a property-level allOf") {
+    When("allOf has a single \$ref") {
+      val schema = Schema(allOf = listOf(Schema(ref = "#/components/schemas/Pack")))
+      val type = resolver.resolveType("pack", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it resolves to the referenced type") {
+        type.toString() shouldBe "uk.co.developmentanddinosaurs.diplodokode.generated.Pack"
+      }
+    }
+
+    When("allOf has multiple entries") {
+      val schema = Schema(allOf = listOf(
+          Schema(ref = "#/components/schemas/A"),
+          Schema(ref = "#/components/schemas/B"),
+      ))
+      val type = resolver.resolveType("combo", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it falls back to Any") {
+        type.toString() shouldBe "kotlin.Any"
+      }
+    }
+
+    When("allOf has a single inline schema (no ref)") {
+      val schema = Schema(allOf = listOf(Schema(type = "object")))
+      val type = resolver.resolveType("inline", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it falls back to Any") {
+        type.toString() shouldBe "kotlin.Any"
+      }
+    }
+  }
+
+  Given("a property-level non-primitive oneOf") {
+    val interfacesByVariant = mapOf(
+        "Tyrannosaur" to listOf("Dinosaur"),
+        "Triceratops" to listOf("Dinosaur"),
+    )
+
+    When("all variants share a common sealed-interface parent") {
+      val schema = Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Triceratops"),
+      ))
+      val type = resolver.resolveType("companion", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+
+      Then("it resolves to the common interface") {
+        type.toString() shouldBe "uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur"
+      }
+    }
+
+    When("variants share no common parent") {
+      val schema = Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Unrelated"),
+      ))
+      val type = resolver.resolveType("companion", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+
+      Then("it falls back to Any") {
+        type.toString() shouldBe "kotlin.Any"
+      }
+    }
+
+    When("interfacesByVariant is empty") {
+      val schema = Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Triceratops"),
+      ))
+      val type = resolver.resolveType("companion", schema, isNullable = false, enumClassNames = emptyMap())
+
+      Then("it falls back to Any rather than silently becoming String") {
+        type.toString() shouldBe "kotlin.Any"
+      }
+    }
+
+    When("one variant is inline (no ref)") {
+      val schema = Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(type = "object"),
+      ))
+      val type = resolver.resolveType("companion", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+
+      Then("it falls back to Any") {
+        type.toString() shouldBe "kotlin.Any"
+      }
+    }
+  }
+
+  Given("a property-level anyOf") {
+    val interfacesByVariant = mapOf(
+        "Tyrannosaur" to listOf("Dinosaur"),
+        "Triceratops" to listOf("Dinosaur"),
+    )
+
+    When("all variants share a common parent") {
+      val schema = Schema(anyOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Triceratops"),
+      ))
+      val type = resolver.resolveType("companions", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+
+      Then("it resolves to the common interface") {
+        type.toString() shouldBe "uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur"
+      }
+    }
+  }
+
+  Given("an array of oneOf variants sharing a common parent") {
+    val interfacesByVariant = mapOf(
+        "Tyrannosaur" to listOf("Dinosaur"),
+        "Triceratops" to listOf("Dinosaur"),
+    )
+    val schema = Schema(type = "array", items = Schema(oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Triceratops"),
+    )))
+    val type = resolver.resolveType("herd", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+
+    Then("it resolves to List<CommonInterface>") {
+      type.toString() shouldBe "kotlin.collections.List<uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur>"
+    }
+  }
+
   Given("containsKotlinUuid") {
     Then("returns true for a direct Uuid type") {
       val uuidType = resolver.mapTypeToKotlin("string", "uuid")

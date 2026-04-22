@@ -56,6 +56,7 @@ internal class DataClassGenerator(
       implementedInterfaces: List<String> = emptyList(),
       discriminatorOverrides: List<DiscriminatorOverride> = emptyList(),
       interfacePropertyNames: Set<String> = emptySet(),
+      allImplementedInterfaces: Map<String, List<String>> = emptyMap(),
   ): FileSpec {
     val className = config.namingStrategy.className(name)
     val fileBuilder = FileSpec.builder(config.packageName, className)
@@ -72,13 +73,13 @@ internal class DataClassGenerator(
     val constructorParams = schema.properties?.entries
         ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
-          buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames)
+          buildConstructorParam(propName, propValue, required, discriminatorOverrides, enumClassNames, allImplementedInterfaces)
         } ?: emptyList()
 
     val properties = schema.properties?.entries
         ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
         ?.map { (propName, propValue) ->
-          buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames)
+          buildProperty(propName, propValue, required, discriminatorOverrides, interfacePropertyNames, enumClassNames, allImplementedInterfaces)
         } ?: emptyList()
 
     if (constructorParams.isEmpty()) {
@@ -188,6 +189,7 @@ internal class DataClassGenerator(
       required: Set<String>,
       discriminatorOverrides: List<DiscriminatorOverride>,
       enumClassNames: Map<String, ClassName>,
+      allImplementedInterfaces: Map<String, List<String>>,
   ): ParameterSpec {
     val propertyName = config.namingStrategy.propertyName(propName)
     val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
@@ -198,7 +200,7 @@ internal class DataClassGenerator(
           .build()
     }
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
-    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames, allImplementedInterfaces)
     val paramBuilder = ParameterSpec.builder(propertyName, kotlinType)
     propValue.default?.let { formatDefault(it, kotlinType, enumClassNames[propName]) }
         ?.let { paramBuilder.defaultValue(it) }
@@ -212,13 +214,14 @@ internal class DataClassGenerator(
       discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
       enumClassNames: Map<String, ClassName>,
+      allImplementedInterfaces: Map<String, List<String>>,
   ): PropertySpec {
     val propertyName = config.namingStrategy.propertyName(propName)
     val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
     return when {
       matchingOverride != null -> buildDiscriminatorProperty(propertyName, propName, matchingOverride, propValue.deprecated)
-      propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames)
-      else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames)
+      propName in interfacePropertyNames -> buildOverrideProperty(propName, propValue, propertyName, required, enumClassNames, allImplementedInterfaces)
+      else -> buildPlainProperty(propName, propValue, propertyName, required, enumClassNames, allImplementedInterfaces)
     }
   }
 
@@ -249,9 +252,10 @@ internal class DataClassGenerator(
       propertyName: String,
       required: Set<String>,
       enumClassNames: Map<String, ClassName>,
+      allImplementedInterfaces: Map<String, List<String>>,
   ): PropertySpec {
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
-    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames, allImplementedInterfaces)
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
@@ -288,9 +292,10 @@ internal class DataClassGenerator(
       propertyName: String,
       required: Set<String>,
       enumClassNames: Map<String, ClassName>,
+      allImplementedInterfaces: Map<String, List<String>>,
   ): PropertySpec {
     val isNullable = config.nullabilityStrategy.isNullable(propName, propValue, required)
-    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames)
+    val kotlinType = typeResolver.resolveType(propName, propValue, isNullable, enumClassNames, allImplementedInterfaces)
     val builder = PropertySpec.builder(propertyName, kotlinType)
         .addModifiers(KModifier.PUBLIC)
         .initializer(propertyName)
@@ -314,6 +319,16 @@ internal class DataClassGenerator(
     }
     if (propValue.type == "array" && propValue.items == null) {
       builder.addKdoc("NOTE: no 'items' schema defined — type is List<Any>. Add an 'items' schema for a typed list.\n")
+    }
+    val baseKotlinBase = kotlinType.copy(nullable = false)
+    if (!propValue.allOf.isNullOrEmpty() && propValue.allOf.singleOrNull()?.ref == null) {
+      builder.addKdoc("NOTE: property-level 'allOf' with multiple items or without a \$ref fell back to Any. Extract to a named schema for a typed property.\n")
+    }
+    if (baseKotlinBase == Any::class.asTypeName() && !propValue.oneOf.isNullOrEmpty() && !isPrimitiveUnion(propValue.oneOf)) {
+      builder.addKdoc("NOTE: property-level 'oneOf' has no common sealed-interface parent; fell back to Any. Extract to a named schema or ensure all variants share a top-level oneOf parent.\n")
+    }
+    if (baseKotlinBase == Any::class.asTypeName() && !propValue.anyOf.isNullOrEmpty()) {
+      builder.addKdoc("NOTE: property-level 'anyOf' has no common sealed-interface parent; fell back to Any. Extract to a named schema or ensure all variants share a top-level anyOf parent.\n")
     }
     if (propValue.type == "array" && !propValue.items?.enum.isNullOrEmpty()) {
       val values = propValue.items.enum.joinToString(", ")
