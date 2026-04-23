@@ -54,7 +54,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
     return ClassName(config.packageName, config.namingStrategy.className(commonInterface))
   }
 
-  private fun resolveMapType(additionalProperties: AdditionalProperties): TypeName {
+  fun resolveMapType(additionalProperties: AdditionalProperties): TypeName {
     val valueType = when (additionalProperties) {
       is AdditionalProperties.Allowed -> Any::class.asTypeName()
       is AdditionalProperties.Forbidden -> Any::class.asTypeName()
