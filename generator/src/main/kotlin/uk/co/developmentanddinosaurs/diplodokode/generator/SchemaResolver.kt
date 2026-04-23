@@ -27,7 +27,7 @@ data class ResolvedSpec(
 class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
 
   fun resolve(schemas: Map<String, Schema>): ResolvedSpec {
-    val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }
+    val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, emptySet()) }
     val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas, flatSchemas)
     val interfacePropertyNames = buildInterfacePropertyNames(schemas, interfaceMap)
     val primitiveUnionSchemas = collectPrimitiveUnionSchemas(flatSchemas)
@@ -48,7 +48,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     return result
   }
 
-  private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: MutableSet<String>): Schema {
+  private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: Set<String>): Schema {
     if (schema.allOf.isNullOrEmpty()) return schema
 
     val mergedProperties = mutableMapOf<String, Schema>()
@@ -58,17 +58,18 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     schema.required?.let { mergedRequired.addAll(it) }
 
     schema.allOf.forEach { subSchema ->
-      val resolved =
+      val (resolved, branchVisited) =
           if (subSchema.ref != null) {
             val refName = subSchema.ref.substringAfterLast("/")
             if (refName in visited) return@forEach
-            visited.add(refName)
-            allSchemas[refName]
+            allSchemas[refName] to (visited + refName)
           } else {
-            subSchema
+            subSchema to visited
           }
-      resolved?.properties?.let { mergedProperties.putAll(it) }
-      resolved?.required?.let { mergedRequired.addAll(it) }
+      if (resolved == null) return@forEach
+      val flattened = flattenAllOf(resolved, allSchemas, branchVisited)
+      flattened.properties?.let { mergedProperties.putAll(it) }
+      flattened.required?.let { mergedRequired.addAll(it) }
     }
 
     return Schema(
