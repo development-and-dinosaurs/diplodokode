@@ -414,6 +414,37 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a discriminator with no mapping and no variant enum (OpenAPI 4.8.25 fallback)") {
+    val schemas = mapOf(
+        "Tyrannosaur" to Schema(
+            type = "object",
+            properties = mapOf("type" to Schema(type = "string")),
+        ),
+        "Triceratops" to Schema(
+            type = "object",
+            properties = mapOf("type" to Schema(type = "string")),
+        ),
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+                Schema(ref = "#/components/schemas/Triceratops"),
+            ),
+            discriminator = Discriminator("type"),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("the raw discriminator value is the schema name with case preserved") {
+        val overrides = resolved.discriminatorOverrides["Tyrannosaur"].shouldNotBeNull()
+        overrides.single().rawValue shouldBe "Tyrannosaur"
+        val otherOverrides = resolved.discriminatorOverrides["Triceratops"].shouldNotBeNull()
+        otherOverrides.single().rawValue shouldBe "Triceratops"
+      }
+    }
+  }
+
   Given("a schema with oneOf inline variants") {
     val schemas = mapOf(
         "Dinosaur" to Schema(

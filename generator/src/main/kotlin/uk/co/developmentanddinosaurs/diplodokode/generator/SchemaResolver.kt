@@ -153,6 +153,6 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }
         ?.key?.let { return it }
     variantSchema.properties?.get(discriminator.propertyName)?.enum?.firstOrNull()?.let { return it }
-    return variantName.lowercase()
+    return variantName
   }
 }
