@@ -72,6 +72,53 @@ class SchemaOverrideTest : BehaviorSpec({
     }
   }
 
+  Given("a spec where an overridden schema is a sealed interface that variants implement") {
+    val dinosaurOverride = ClassName("com.example.zoo", "Dinosaur")
+    val sealedConfig = GeneratorConfig(
+      schemaOverrides = mapOf("Dinosaur" to dinosaurOverride),
+    )
+    val moduleConfig = GeneratorConfig(
+      schemaOverrides = mapOf("Dinosaur" to dinosaurOverride),
+      serialisationStrategy = KotlinxSerialisationStrategy,
+      polymorphismStrategy = PolymorphismStrategy.MODULE,
+    )
+    val sealedGenerator = DiplodokodeGenerator(sealedConfig)
+    val specFile = File("src/test/resources/oneof-api.yaml")
+
+    When("the generator runs") {
+      val files = sealedGenerator.generateFromSpec(specFile)
+
+      Then("variant data classes implement the override class instead of the default-package one") {
+        val tyrannosaurCode = files.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "import com.example.zoo.Dinosaur"
+        tyrannosaurCode shouldContain ": Dinosaur"
+        tyrannosaurCode shouldNotContain "import uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur"
+      }
+
+      Then("the discriminator override property uses the override's nested Type") {
+        val tyrannosaurCode = files.find { it.name == "Tyrannosaur" }!!.toString()
+        tyrannosaurCode shouldContain "Dinosaur.Type."
+      }
+
+      Then("no file is generated for the overridden sealed interface") {
+        files.none { it.name == "Dinosaur" } shouldBe true
+      }
+    }
+
+    When("the same spec is generated with a kotlinx-serialisation MODULE strategy") {
+      val moduleFiles = DiplodokodeGenerator(moduleConfig).generateFromSpec(specFile)
+
+      Then("the serializers module skips the overridden interface so no dangling reference is registered") {
+        val moduleFile = moduleFiles.find { it.name == "DiplodokodeModule" }
+        if (moduleFile != null) {
+          val code = moduleFile.toString()
+          code shouldNotContain "polymorphic(Dinosaur::class)"
+          code shouldNotContain "import uk.co.developmentanddinosaurs.diplodokode.generated.Dinosaur"
+        }
+      }
+    }
+  }
+
   Given("a spec where the overridden schema is not defined in the spec at all") {
     val externalConfig = GeneratorConfig(
       schemaOverrides = mapOf("DinosaurDna" to dnaClassName),

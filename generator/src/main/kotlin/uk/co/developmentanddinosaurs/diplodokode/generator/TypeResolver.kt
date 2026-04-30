@@ -76,11 +76,12 @@ internal class TypeResolver(private val config: GeneratorConfig) {
         else -> mapTypeToKotlin(items.type, items.format)
       }
 
-  private fun resolveRef(ref: String): ClassName {
-    val schemaName = RefUtil.schemaNameFromRef(ref)
-    return config.schemaOverrides[schemaName]
-        ?: ClassName(config.packageName, config.namingStrategy.className(schemaName))
-  }
+  private fun resolveRef(ref: String): ClassName = resolveSchemaName(RefUtil.schemaNameFromRef(ref))
+
+  /** Resolves a schema name to its [ClassName], honouring [GeneratorConfig.schemaOverrides]. */
+  fun resolveSchemaName(schemaName: String): ClassName =
+      config.schemaOverrides[schemaName]
+          ?: ClassName(config.packageName, config.namingStrategy.className(schemaName))
 
   fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
       openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()

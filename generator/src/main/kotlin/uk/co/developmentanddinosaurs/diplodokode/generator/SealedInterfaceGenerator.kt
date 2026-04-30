@@ -35,7 +35,7 @@ internal class SealedInterfaceGenerator(
     }
     config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
     implementedInterfaces.forEach { iface ->
-      interfaceBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+      interfaceBuilder.addSuperinterface(typeResolver.resolveSchemaName(iface))
     }
     listOfNotNull(schema.title, schema.description).joinToString("\n\n")
         .takeIf { it.isNotEmpty() }?.let { interfaceBuilder.addKdoc("$it\n") }

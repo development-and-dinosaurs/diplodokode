@@ -12,19 +12,26 @@ private val SERIALIZERS_MODULE_CLASS = ClassName(KOTLINX_SERIALIZATION_MODULES, 
 private val POLYMORPHIC_FN = MemberName(KOTLINX_SERIALIZATION_MODULES, "polymorphic")
 private val SUBCLASS_FN = MemberName(KOTLINX_SERIALIZATION_MODULES, "subclass")
 
-internal class SerializersModuleGenerator(private val config: GeneratorConfig) {
+internal class SerializersModuleGenerator(
+    private val config: GeneratorConfig,
+    private val typeResolver: TypeResolver,
+) {
 
   fun generate(interfaceVariants: Map<String, List<String>>): FileSpec? {
-    if (interfaceVariants.isEmpty()) return null
+    val registrable = interfaceVariants
+        .filterKeys { it !in config.schemaOverrides }
+        .mapValues { (_, variants) -> variants.filter { it !in config.schemaOverrides } }
+        .filterValues { it.isNotEmpty() }
+    if (registrable.isEmpty()) return null
 
     val initializer = CodeBlock.builder()
         .beginControlFlow("%T", SERIALIZERS_MODULE_CLASS)
         .apply {
-          interfaceVariants.entries.sortedBy { it.key }.forEach { (interfaceName, variants) ->
-            val interfaceClass = ClassName(config.packageName, config.namingStrategy.className(interfaceName))
+          registrable.entries.sortedBy { it.key }.forEach { (interfaceName, variants) ->
+            val interfaceClass = typeResolver.resolveSchemaName(interfaceName)
             beginControlFlow("%M(%T::class)", POLYMORPHIC_FN, interfaceClass)
             variants.sorted().forEach { variantName ->
-              val variantClass = ClassName(config.packageName, config.namingStrategy.className(variantName))
+              val variantClass = typeResolver.resolveSchemaName(variantName)
               addStatement("%M(%T::class)", SUBCLASS_FN, variantClass)
             }
             endControlFlow()

@@ -8,7 +8,7 @@ import io.kotest.matchers.string.shouldNotContain
 
 class SerializersModuleGeneratorTest : BehaviorSpec({
 
-  fun generator(config: GeneratorConfig = GeneratorConfig()) = SerializersModuleGenerator(config)
+  fun generator(config: GeneratorConfig = GeneratorConfig()) = SerializersModuleGenerator(config, TypeResolver(config))
 
   Given("an empty interface-variants map") {
     When("the generator is called") {

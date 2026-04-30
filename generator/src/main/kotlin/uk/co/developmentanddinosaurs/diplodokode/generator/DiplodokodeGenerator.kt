@@ -8,8 +8,9 @@ import java.io.File
 class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig()) {
   private val parser = OpenApiSpecParser()
   private val resolver = SchemaResolver(config)
+  private val typeResolver = TypeResolver(config)
   private val classGenerator = KotlinClassGenerator(config)
-  private val moduleGenerator = SerializersModuleGenerator(config)
+  private val moduleGenerator = SerializersModuleGenerator(config, typeResolver)
   private val unionInterfaceGenerator = UnionInterfaceGenerator(config)
   private val validator = SpecValidator()
 
@@ -73,9 +74,7 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
 
     val moduleFile = if (config.serialisationStrategy != null && config.polymorphismStrategy == PolymorphismStrategy.MODULE) {
       val interfaceVariants = mutableMapOf<String, MutableList<String>>()
-      implementedInterfaces
-          .filter { (variantName, _) -> variantName !in config.schemaOverrides }
-          .forEach { (variantName, interfaces) ->
+      implementedInterfaces.forEach { (variantName, interfaces) ->
         interfaces.forEach { interfaceName ->
           interfaceVariants.getOrPut(interfaceName) { mutableListOf() }.add(variantName)
         }

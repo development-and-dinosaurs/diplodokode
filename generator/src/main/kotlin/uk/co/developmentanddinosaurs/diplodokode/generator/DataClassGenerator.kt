@@ -129,7 +129,7 @@ internal class DataClassGenerator(
         .also { builder -> nestedEnumTypes.forEach { builder.addType(it) } }
 
     implementedInterfaces.forEach { iface ->
-      dataClassBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+      dataClassBuilder.addSuperinterface(typeResolver.resolveSchemaName(iface))
     }
 
     return fileBuilder.addType(dataClassBuilder.build()).build()
@@ -155,7 +155,7 @@ internal class DataClassGenerator(
           }
         }
     implementedInterfaces.forEach { iface ->
-      objectBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+      objectBuilder.addSuperinterface(typeResolver.resolveSchemaName(iface))
     }
     return fileBuilder.addType(objectBuilder.build()).build()
   }
@@ -199,7 +199,7 @@ internal class DataClassGenerator(
     val propertyName = config.namingStrategy.propertyName(propName)
     val matchingOverride = discriminatorOverrides.find { it.propertyName == propName }
     if (matchingOverride != null) {
-      val enumType = ClassName(config.packageName, config.namingStrategy.className(matchingOverride.interfaceName), "Type")
+      val enumType = typeResolver.resolveSchemaName(matchingOverride.interfaceName).nestedClass("Type")
       return ParameterSpec.builder(propertyName, enumType)
           .defaultValue("%T.%L", enumType, matchingOverride.constant)
           .build()
@@ -236,7 +236,7 @@ internal class DataClassGenerator(
       discriminatorOverride: DiscriminatorOverride,
       deprecated: Boolean? = null,
   ): PropertySpec {
-    val enumType = ClassName(config.packageName, config.namingStrategy.className(discriminatorOverride.interfaceName), "Type")
+    val enumType = typeResolver.resolveSchemaName(discriminatorOverride.interfaceName).nestedClass("Type")
     val builder = PropertySpec.builder(propertyName, enumType)
         .addModifiers(KModifier.OVERRIDE)
         .initializer(propertyName)
