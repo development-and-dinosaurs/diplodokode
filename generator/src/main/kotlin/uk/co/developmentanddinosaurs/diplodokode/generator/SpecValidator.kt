@@ -23,7 +23,7 @@ internal class SpecValidator {
       allKnownNames: Set<String>,
       diagnostics: MutableList<GenerationDiagnostic>,
   ) {
-    collectRefs(schema).forEach { (location, refName) ->
+    collectRefs(schema).forEach { (location, refName, rawRef) ->
       if (refName !in allKnownNames) {
         diagnostics.add(
             GenerationDiagnostic(
@@ -33,13 +33,33 @@ internal class SpecValidator {
                 severity = DiagnosticSeverity.ERROR,
             )
         )
+        return@forEach
+      }
+      if (RefUtil.isExternalRef(rawRef)) {
+        diagnostics.add(
+            GenerationDiagnostic(
+                schemaName = schemaName,
+                location = location,
+                message = "Ref '$rawRef' points to an external document. Cross-document refs are not supported; resolving by local schema name '$refName' may collide.",
+                severity = DiagnosticSeverity.WARNING,
+            )
+        )
+      } else if (!RefUtil.isLocalComponentsRef(rawRef)) {
+        diagnostics.add(
+            GenerationDiagnostic(
+                schemaName = schemaName,
+                location = location,
+                message = "Ref '$rawRef' is not a canonical local reference (#/components/schemas/<Name>); resolving by path-tail '$refName' which may collide with other schemas.",
+                severity = DiagnosticSeverity.WARNING,
+            )
+        )
       }
     }
   }
 
-  private fun collectRefs(schema: Schema, prefix: String = ""): List<Pair<String, String>> {
-    val refs = mutableListOf<Pair<String, String>>()
-    schema.ref?.let { refs.add("${prefix}\$ref" to it.substringAfterLast("/")) }
+  private fun collectRefs(schema: Schema, prefix: String = ""): List<Triple<String, String, String>> {
+    val refs = mutableListOf<Triple<String, String, String>>()
+    schema.ref?.let { refs.add(Triple("${prefix}\$ref", RefUtil.schemaNameFromRef(it), it)) }
     schema.allOf?.forEachIndexed { i, s -> refs.addAll(collectRefs(s, "${prefix}allOf[$i].")) }
     schema.oneOf?.forEachIndexed { i, s -> refs.addAll(collectRefs(s, "${prefix}oneOf[$i].")) }
     schema.anyOf?.forEachIndexed { i, s -> refs.addAll(collectRefs(s, "${prefix}anyOf[$i].")) }
@@ -51,7 +71,7 @@ internal class SpecValidator {
       refs.addAll(collectRefs(it.schema, "${prefix}additionalProperties."))
     }
     schema.discriminator?.mapping?.forEach { (key, refPath) ->
-      refs.add("${prefix}discriminator.mapping.$key" to refPath.substringAfterLast("/"))
+      refs.add(Triple("${prefix}discriminator.mapping.$key", RefUtil.schemaNameFromRef(refPath), refPath))
     }
     return refs
   }
@@ -117,7 +137,7 @@ internal class SpecValidator {
   ) {
     val discriminator = schema.discriminator ?: return
     val variants = schema.oneOf ?: schema.anyOf ?: return
-    val refVariants = variants.mapNotNull { it.ref?.substringAfterLast("/") }
+    val refVariants = variants.mapNotNull { it.ref?.let(RefUtil::schemaNameFromRef) }
 
     val missingVariants = refVariants.filter { variantName ->
       val variantSchema = allSchemas[variantName] ?: return@filter false

@@ -60,7 +60,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     schema.allOf.forEach { subSchema ->
       val (resolved, branchVisited) =
           if (subSchema.ref != null) {
-            val refName = subSchema.ref.substringAfterLast("/")
+            val refName = subSchema.ref.let(RefUtil::schemaNameFromRef)
             if (refName in visited) return@forEach
             allSchemas[refName] to (visited + refName)
           } else {
@@ -90,7 +90,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
 
     rawSchemas.forEach { (interfaceName, schema) ->
       val variants = schema.oneOf ?: schema.anyOf ?: return@forEach
-      val refVariants = variants.mapNotNull { it.ref?.substringAfterLast("/") }
+      val refVariants = variants.mapNotNull { it.ref?.let(RefUtil::schemaNameFromRef) }
 
       refVariants.forEach { variantName ->
         interfaceMap.getOrPut(variantName) { mutableListOf() }.add(interfaceName)
@@ -151,7 +151,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
-    discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }
+    discriminator.mapping?.entries?.find { (_, ref) -> ref.let(RefUtil::schemaNameFromRef) == variantName }
         ?.key?.let { return it }
     variantSchema.properties?.get(discriminator.propertyName)?.enum?.firstOrNull()?.let { return it }
     return variantName

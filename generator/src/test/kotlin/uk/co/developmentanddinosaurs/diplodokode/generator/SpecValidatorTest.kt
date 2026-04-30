@@ -313,6 +313,51 @@ class SpecValidatorTest : BehaviorSpec({
     }
   }
 
+  Given("a schema with an external ref") {
+    val schemas = mapOf(
+        "Tyrannosaur" to Schema(
+            type = "object",
+            properties = mapOf("prey" to Schema(ref = "other.yaml#/components/schemas/Triceratops")),
+        ),
+        "Triceratops" to Schema(type = "object"),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("a warning is produced noting cross-document refs are unsupported") {
+        val warnings = diagnostics.filter { it.severity == DiagnosticSeverity.WARNING }
+        warnings shouldHaveSize 1
+        warnings[0].message shouldContain "external"
+        warnings[0].message shouldContain "other.yaml"
+      }
+
+      Then("no error is produced because the local tail matches a known schema") {
+        diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }.shouldBeEmpty()
+      }
+    }
+  }
+
+  Given("a schema with a non-canonical local ref (e.g. #/definitions/Foo)") {
+    val schemas = mapOf(
+        "Tyrannosaur" to Schema(
+            type = "object",
+            properties = mapOf("prey" to Schema(ref = "#/definitions/Triceratops")),
+        ),
+        "Triceratops" to Schema(type = "object"),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("a warning is produced noting the non-canonical form") {
+        val warnings = diagnostics.filter { it.severity == DiagnosticSeverity.WARNING }
+        warnings shouldHaveSize 1
+        warnings[0].message shouldContain "canonical"
+      }
+    }
+  }
+
   Given("a schema with a discriminator mapping that references an undefined schema") {
     val schemas = mapOf(
       "Dinosaur" to Schema(

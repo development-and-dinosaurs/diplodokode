@@ -43,7 +43,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
   }
 
   private fun resolveUnionType(variants: List<Schema>, interfacesByVariant: Map<String, List<String>>): TypeName {
-    val refs = variants.map { it.ref?.substringAfterLast("/") }
+    val refs = variants.map { it.ref?.let(RefUtil::schemaNameFromRef) }
     if (refs.any { it == null }) return Any::class.asTypeName()
     val refNames = refs.filterNotNull()
     if (refNames.isEmpty()) return Any::class.asTypeName()
@@ -77,7 +77,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
       }
 
   private fun resolveRef(ref: String): ClassName {
-    val schemaName = ref.substringAfterLast("/")
+    val schemaName = RefUtil.schemaNameFromRef(ref)
     return config.schemaOverrides[schemaName]
         ?: ClassName(config.packageName, config.namingStrategy.className(schemaName))
   }
