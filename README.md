@@ -181,7 +181,26 @@ public enum class Diet {
 }
 ```
 
-Inline enum properties on a data class generate a nested `enum class` in the same file.
+Inline enum properties on a data class generate an `enum class` nested inside the owning data class, so two unrelated schemas can each declare an inline enum with the same property name without colliding:
+
+```yaml
+Tyrannosaur:
+  type: object
+  properties:
+    style:
+      type: string
+      enum: [ambush, pursuit]
+```
+
+```kotlin
+public data class Tyrannosaur(
+    public val style: Style?,
+) {
+    public enum class Style { AMBUSH, PURSUIT }
+}
+```
+
+Reference these from outside as `Tyrannosaur.Style.AMBUSH`. To share an enum across multiple schemas, define it as a top-level schema and `$ref` it instead.
 
 ---
 

@@ -68,7 +68,7 @@ internal class DataClassGenerator(
     val serialiseDiscriminator = serialisedDiscriminatorProperties.isNotEmpty()
     val required = schema.required?.toSet() ?: emptySet()
 
-    val enumClassNames = buildInlineEnumClasses(schema, discriminatorOverrides, interfacePropertyNames, fileBuilder)
+    val (enumClassNames, nestedEnumTypes) = buildInlineEnumClasses(className, schema, discriminatorOverrides, interfacePropertyNames)
 
     val constructorParams = schema.properties?.entries
         ?.filter { (propName, _) -> propName !in serialisedDiscriminatorProperties }
@@ -126,6 +126,7 @@ internal class DataClassGenerator(
         }
         .primaryConstructor(FunSpec.constructorBuilder().addParameters(constructorParams).build())
         .addProperties(properties)
+        .also { builder -> nestedEnumTypes.forEach { builder.addType(it) } }
 
     implementedInterfaces.forEach { iface ->
       dataClassBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
@@ -166,22 +167,26 @@ internal class DataClassGenerator(
       }
 
   private fun buildInlineEnumClasses(
+      parentClassName: String,
       schema: Schema,
       discriminatorOverrides: List<DiscriminatorOverride>,
       interfacePropertyNames: Set<String>,
-      fileBuilder: FileSpec.Builder,
-  ): Map<String, ClassName> =
-      schema.properties?.entries
-          ?.filter { (propName, propValue) ->
-            !propValue.enum.isNullOrEmpty() &&
-                discriminatorOverrides.none { it.propertyName == propName } &&
-                propName !in interfacePropertyNames
-          }
-          ?.associate { (propName, propValue) ->
-            val enumName = config.namingStrategy.className(propName)
-            fileBuilder.addType(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!, deprecated = propValue.deprecated))
-            propName to ClassName(config.packageName, enumName)
-          } ?: emptyMap()
+  ): Pair<Map<String, ClassName>, List<TypeSpec>> {
+    val classNames = mutableMapOf<String, ClassName>()
+    val types = mutableListOf<TypeSpec>()
+    schema.properties?.entries
+        ?.filter { (propName, propValue) ->
+          !propValue.enum.isNullOrEmpty() &&
+              discriminatorOverrides.none { it.propertyName == propName } &&
+              propName !in interfacePropertyNames
+        }
+        ?.forEach { (propName, propValue) ->
+          val enumName = config.namingStrategy.className(propName)
+          types.add(enumClassGenerator.generateEnumClass(enumName, propValue.enum!!, deprecated = propValue.deprecated))
+          classNames[propName] = ClassName(config.packageName, parentClassName, enumName)
+        }
+    return classNames to types
+  }
 
   private fun buildConstructorParam(
       propName: String,

@@ -259,6 +259,45 @@ class DataClassGeneratorTest : BehaviorSpec({
     }
   }
 
+  Given("two data classes that both declare an inline enum with the same property name but different values") {
+    val tyrannosaurSchema = Schema(
+      type = "object",
+      required = listOf("style"),
+      properties = mapOf(
+        "style" to Schema(type = "string", enum = listOf("ambush", "pursuit")),
+      ),
+    )
+    val triceratopsSchema = Schema(
+      type = "object",
+      required = listOf("style"),
+      properties = mapOf(
+        "style" to Schema(type = "string", enum = listOf("herd", "solitary")),
+      ),
+    )
+
+    When("each class is generated") {
+      val tyrannosaurCode = generator().generate("Tyrannosaur", tyrannosaurSchema).toString()
+      val triceratopsCode = generator().generate("Triceratops", triceratopsSchema).toString()
+
+      Then("each enum is nested inside its owning data class so the names do not collide") {
+        tyrannosaurCode shouldContain "class Tyrannosaur"
+        tyrannosaurCode shouldContain "enum class Style"
+        tyrannosaurCode shouldContain "AMBUSH"
+        tyrannosaurCode shouldContain "PURSUIT"
+
+        triceratopsCode shouldContain "class Triceratops"
+        triceratopsCode shouldContain "enum class Style"
+        triceratopsCode shouldContain "HERD"
+        triceratopsCode shouldContain "SOLITARY"
+      }
+
+      Then("each enum is nested inside its data class body, not declared at the top level of the file") {
+        tyrannosaurCode shouldContain ") {\n  public enum class Style"
+        triceratopsCode shouldContain ") {\n  public enum class Style"
+      }
+    }
+  }
+
   Given("a data class with snake_case property names and serialisation enabled") {
     val schema = Schema(
       type = "object",
