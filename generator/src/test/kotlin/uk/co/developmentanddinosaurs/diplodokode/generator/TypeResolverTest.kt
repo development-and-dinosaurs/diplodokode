@@ -312,6 +312,18 @@ class TypeResolverTest : BehaviorSpec({
     }
   }
 
+  Given("an array whose items are a primitive oneOf union") {
+    val schema = Schema(type = "array", items = Schema(oneOf = listOf(
+        Schema(type = "string"),
+        Schema(type = "number"),
+    )))
+    val type = resolver.resolveType("measurements", schema, isNullable = false, enumClassNames = emptyMap())
+
+    Then("it resolves to List<StringOrDouble>, not List<String>") {
+      type.toString() shouldBe "kotlin.collections.List<uk.co.developmentanddinosaurs.diplodokode.generated.StringOrDouble>"
+    }
+  }
+
   Given("containsKotlinUuid") {
     Then("returns true for a direct Uuid type") {
       val uuidType = resolver.mapTypeToKotlin("string", "uuid")

@@ -37,15 +37,17 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
   private fun collectPrimitiveUnionSchemas(schemas: Map<String, Schema>): Map<String, Schema> {
     val result = mutableMapOf<String, Schema>()
     schemas.values.forEach { schema ->
-      schema.properties?.values?.forEach { propSchema ->
-        val oneOf = propSchema.oneOf ?: return@forEach
-        if (isPrimitiveUnion(oneOf)) {
-          val name = primitiveUnionName(oneOf, config.typeMappingStrategy)
-          result[name] = Schema(oneOf = oneOf)
-        }
-      }
+      schema.properties?.values?.forEach { propSchema -> collectPrimitiveUnionsIn(propSchema, result) }
     }
     return result
+  }
+
+  private fun collectPrimitiveUnionsIn(schema: Schema, result: MutableMap<String, Schema>) {
+    schema.oneOf?.takeIf { isPrimitiveUnion(it) }?.let { oneOf ->
+      val name = primitiveUnionName(oneOf, config.typeMappingStrategy)
+      result[name] = Schema(oneOf = oneOf)
+    }
+    schema.items?.let { collectPrimitiveUnionsIn(it, result) }
   }
 
   private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: Set<String>): Schema {

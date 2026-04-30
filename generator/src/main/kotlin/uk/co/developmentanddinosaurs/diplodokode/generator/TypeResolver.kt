@@ -27,8 +27,7 @@ internal class TypeResolver(private val config: GeneratorConfig) {
             List::class.asTypeName().parameterizedBy(elementType)
           }
           propValue.additionalProperties != null && propValue.additionalProperties !is AdditionalProperties.Forbidden -> resolveMapType(propValue.additionalProperties)
-          propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) ->
-              ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(propValue.oneOf, config.typeMappingStrategy)))
+          propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) -> primitiveUnionClassName(propValue.oneOf)
           !propValue.allOf.isNullOrEmpty() -> resolveAllOfType(propValue.allOf)
           !propValue.oneOf.isNullOrEmpty() -> resolveUnionType(propValue.oneOf, interfacesByVariant)
           !propValue.anyOf.isNullOrEmpty() -> resolveUnionType(propValue.anyOf, interfacesByVariant)
@@ -71,10 +70,14 @@ internal class TypeResolver(private val config: GeneratorConfig) {
           List::class.asTypeName().parameterizedBy(elementType)
         }
         !items.allOf.isNullOrEmpty() -> resolveAllOfType(items.allOf)
-        !items.oneOf.isNullOrEmpty() && !isPrimitiveUnion(items.oneOf) -> resolveUnionType(items.oneOf, interfacesByVariant)
+        !items.oneOf.isNullOrEmpty() && isPrimitiveUnion(items.oneOf) -> primitiveUnionClassName(items.oneOf)
+        !items.oneOf.isNullOrEmpty() -> resolveUnionType(items.oneOf, interfacesByVariant)
         !items.anyOf.isNullOrEmpty() -> resolveUnionType(items.anyOf, interfacesByVariant)
         else -> mapTypeToKotlin(items.type, items.format)
       }
+
+  private fun primitiveUnionClassName(oneOf: List<Schema>): ClassName =
+      ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(oneOf, config.typeMappingStrategy)))
 
   private fun resolveRef(ref: String): ClassName = resolveSchemaName(RefUtil.schemaNameFromRef(ref))
 

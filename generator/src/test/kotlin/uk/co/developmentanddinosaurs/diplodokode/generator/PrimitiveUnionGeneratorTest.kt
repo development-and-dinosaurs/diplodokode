@@ -97,6 +97,25 @@ class PrimitiveUnionGeneratorTest : BehaviorSpec({
         }
     }
 
+    Given("a spec where a primitive oneOf appears only as the items of an array property") {
+        val spec = File("src/test/resources/primitive-union-array-items-api.yaml")
+        val files = DiplodokodeGenerator(GeneratorConfig()).generateFromSpec(spec)
+        val dinosaurCode = files.find { it.name == "Dinosaur" }!!.toString()
+
+        Then("the array property is typed as List<StringOrDouble>, not List<String>") {
+            dinosaurCode shouldContain "List<StringOrDouble>"
+            dinosaurCode shouldNotContain "List<String>"
+        }
+
+        Then("the StringOrDouble wrapper class is still generated even though the union only appears in items") {
+            files.any { it.name == "StringOrDouble" } shouldBe true
+        }
+
+        Then("the Union2 abstraction is generated to match the wrapper's arity") {
+            files.any { it.name == "Union2" } shouldBe true
+        }
+    }
+
     Given("two schemas with the same primitive types declared in different orders") {
         val generator = DiplodokodeGenerator(GeneratorConfig())
 

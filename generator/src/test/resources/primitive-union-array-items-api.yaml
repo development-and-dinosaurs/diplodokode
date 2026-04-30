@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Primitive Union Array Items API
+  version: "1.0"
+
+components:
+  schemas:
+    Dinosaur:
+      type: object
+      properties:
+        name:
+          type: string
+        measurements:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: number
+      required:
+        - name
+
+paths:
+  /dinosaurs:
+    get:
+      summary: Get a dinosaur
+      responses:
+        '200':
+          description: A dinosaur
