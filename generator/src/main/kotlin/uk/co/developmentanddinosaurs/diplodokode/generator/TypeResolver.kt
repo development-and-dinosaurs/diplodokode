@@ -9,6 +9,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalPro
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private val KOTLIN_UUID = ClassName("kotlin.uuid", "Uuid")
+private val KOTLIN_TIME_INSTANT = ClassName("kotlin.time", "Instant")
 
 internal class TypeResolver(private val config: GeneratorConfig) {
 
@@ -89,10 +90,14 @@ internal class TypeResolver(private val config: GeneratorConfig) {
   fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
       openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()
 
-  fun containsKotlinUuid(type: TypeName): Boolean =
+  fun containsKotlinUuid(type: TypeName): Boolean = containsClassName(type, KOTLIN_UUID)
+
+  fun containsKotlinTimeInstant(type: TypeName): Boolean = containsClassName(type, KOTLIN_TIME_INSTANT)
+
+  private fun containsClassName(type: TypeName, target: ClassName): Boolean =
       when {
-        type.copy(nullable = false) == KOTLIN_UUID -> true
-        type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
+        type.copy(nullable = false) == target -> true
+        type is ParameterizedTypeName -> type.typeArguments.any { containsClassName(it, target) }
         else -> false
       }
 
