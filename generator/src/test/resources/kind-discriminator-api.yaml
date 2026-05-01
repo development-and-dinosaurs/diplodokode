@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Kind Discriminator API
+  version: "1.0"
+
+components:
+  schemas:
+    Theropod:
+      description: A bipedal carnivorous dinosaur
+      oneOf:
+        - $ref: '#/components/schemas/Velociraptor'
+        - $ref: '#/components/schemas/Allosaurus'
+      discriminator:
+        propertyName: kind
+    Velociraptor:
+      type: object
+      required:
+        - kind
+        - packSize
+      properties:
+        kind:
+          type: string
+          enum: [velociraptor]
+        packSize:
+          type: integer
+          description: Number of individuals in the hunting pack
+    Allosaurus:
+      type: object
+      required:
+        - kind
+        - territorySize
+      properties:
+        kind:
+          type: string
+          enum: [allosaurus]
+        territorySize:
+          type: number
+          description: Territory size in square kilometres

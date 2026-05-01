@@ -21,6 +21,9 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   internal val serialisationConfig: SerialisationExtension = objects.newInstance(SerialisationExtension::class.java)
 
+  internal val schemaOverridesMap: MapProperty<String, String> =
+      objects.mapProperty(String::class.java, String::class.java)
+
   fun inputFile(path: String) {
     inputFile.set(path)
   }
@@ -47,6 +50,24 @@ abstract class DiplodokodeExtension @Inject constructor(objects: ObjectFactory) 
 
   fun serialisation(action: SerialisationExtension.() -> Unit) {
     action(serialisationConfig)
+  }
+
+  /**
+   * Skips generation for [schemaName] and uses [fullyQualifiedClassName] wherever a `$ref` to
+   * that schema appears in other generated classes.
+   *
+   * Use this when you want to provide your own hand-written implementation of a schema.
+   * The schema should still be defined in the OpenAPI spec so that `$ref` references validate.
+   *
+   * Example:
+   * ```kotlin
+   * diplodokode {
+   *     schemaOverride("DinosaurDna", "com.example.biology.DinosaurDna")
+   * }
+   * ```
+   */
+  fun schemaOverride(schemaName: String, fullyQualifiedClassName: String) {
+    schemaOverridesMap.put(schemaName, fullyQualifiedClassName)
   }
 }
 

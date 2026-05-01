@@ -74,7 +74,7 @@ The `format` field on a property refines the Kotlin type. All mapped types are K
 
 | OpenAPI type | Format      | Kotlin type                  | Dependency           |
 |--------------|-------------|------------------------------|----------------------|
-| `string`     | `date-time` | `kotlinx.datetime.Instant`   | `kotlinx-datetime`   |
+| `string`     | `date-time` | `kotlin.time.Instant`        | stdlib (Kotlin 2.1+) |
 | `string`     | `date`      | `kotlinx.datetime.LocalDate` | `kotlinx-datetime`   |
 | `string`     | `time`      | `kotlinx.datetime.LocalTime` | `kotlinx-datetime`   |
 | `string`     | `duration`  | `kotlin.time.Duration`       | stdlib               |

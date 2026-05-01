@@ -149,8 +149,8 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
         code shouldNotContain "val type:"
       }
 
-      Then("no @JsonClassDiscriminator annotation is present") {
-        code shouldNotContain "JsonClassDiscriminator"
+      Then("@JsonClassDiscriminator annotation is present with the property name") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
       }
     }
   }
@@ -320,6 +320,27 @@ class SealedInterfaceGeneratorTest : BehaviorSpec({
 
       Then("the fallback abstract discriminator property is emitted instead") {
         code shouldContain "abstract val type: String"
+      }
+    }
+  }
+
+  Given("a sealed interface with abstract properties whose types require Kotlin opt-ins") {
+    val schema = Schema(
+      oneOf = listOf(Schema(ref = "#/components/schemas/Tyrannosaur")),
+      properties = mapOf(
+        "id" to Schema(type = "string", format = "uuid"),
+        "discoveredAt" to Schema(type = "string", format = "date-time"),
+      ),
+      required = listOf("id", "discoveredAt"),
+    )
+
+    When("the generator produces a sealed interface") {
+      val code = generator().generate("Dinosaur", schema, schema.oneOf!!, "oneOf", null).toString()
+
+      Then("a single file-level @OptIn covers both ExperimentalUuidApi and ExperimentalTime") {
+        code shouldContain "@file:OptIn"
+        code shouldContain "ExperimentalUuidApi::class"
+        code shouldContain "ExperimentalTime::class"
       }
     }
   }

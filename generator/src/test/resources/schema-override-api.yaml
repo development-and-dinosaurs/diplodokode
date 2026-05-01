@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: Schema Override API
+  version: "1.0"
+
+components:
+  schemas:
+    Tyrannosaur:
+      type: object
+      required:
+        - name
+        - dna
+      properties:
+        name:
+          type: string
+        dna:
+          $ref: '#/components/schemas/DinosaurDna'
+    DinosaurDna:
+      type: object
+      description: Complex DNA representation — override with a hand-written class.
+      properties:
+        sequence:
+          type: string

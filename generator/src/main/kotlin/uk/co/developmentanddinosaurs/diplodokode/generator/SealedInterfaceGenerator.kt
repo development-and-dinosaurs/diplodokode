@@ -20,6 +20,7 @@ internal class SealedInterfaceGenerator(
       keyword: String,
       discriminatorEnum: DiscriminatorEnum?,
       implementedInterfaces: List<String> = emptyList(),
+      allImplementedInterfaces: Map<String, List<String>> = emptyMap(),
   ): FileSpec {
     val interfaceName = config.namingStrategy.className(name)
     val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName).addModifiers(KModifier.SEALED)
@@ -34,7 +35,7 @@ internal class SealedInterfaceGenerator(
     }
     config.serialisationStrategy?.let { interfaceBuilder.addAnnotation(it.classAnnotation) }
     implementedInterfaces.forEach { iface ->
-      interfaceBuilder.addSuperinterface(ClassName(config.packageName, config.namingStrategy.className(iface)))
+      interfaceBuilder.addSuperinterface(typeResolver.resolveSchemaName(iface))
     }
     listOfNotNull(schema.title, schema.description).joinToString("\n\n")
         .takeIf { it.isNotEmpty() }?.let { interfaceBuilder.addKdoc("$it\n") }
@@ -47,7 +48,7 @@ internal class SealedInterfaceGenerator(
     applyDiscriminator(interfaceBuilder, interfaceName, discriminatorEnum, useSerialisedDiscriminator, schema)
 
     val discriminatorPropName = discriminatorEnum?.propertyName ?: schema.discriminator?.propertyName
-    addAbstractProperties(interfaceBuilder, schema, discriminatorPropName)
+    addAbstractProperties(interfaceBuilder, schema, discriminatorPropName, allImplementedInterfaces)
 
     variants.filter { it.ref == null }.forEach { variant ->
       if (variant.properties.isNullOrEmpty()) {
@@ -58,11 +59,13 @@ internal class SealedInterfaceGenerator(
       }
     }
 
+    val builtInterface = interfaceBuilder.build()
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
-    if (useSerialisedDiscriminator && config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
+    if (useSerialisedDiscriminator) {
       config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
-    return fileBuilder.addType(interfaceBuilder.build()).build()
+    fileOptInAnnotation(typeResolver, builtInterface.propertySpecs.map { it.type })?.let { fileBuilder.addAnnotation(it) }
+    return fileBuilder.addType(builtInterface).build()
   }
 
   private fun variantKdoc(keyword: String) =
@@ -105,10 +108,8 @@ internal class SealedInterfaceGenerator(
   }
 
   private fun addSerialisedDiscriminator(interfaceBuilder: TypeSpec.Builder, discriminatorEnum: DiscriminatorEnum) {
-    if (config.polymorphismStrategy == PolymorphismStrategy.ANNOTATION) {
-      config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
-          ?.let { interfaceBuilder.addAnnotation(it) }
-    }
+    config.serialisationStrategy?.discriminatorAnnotation(discriminatorEnum.propertyName)
+        ?.let { interfaceBuilder.addAnnotation(it) }
   }
 
   private fun addFallbackDiscriminator(interfaceBuilder: TypeSpec.Builder, schema: Schema) {
@@ -128,13 +129,14 @@ internal class SealedInterfaceGenerator(
       interfaceBuilder: TypeSpec.Builder,
       schema: Schema,
       discriminatorPropName: String?,
+      allImplementedInterfaces: Map<String, List<String>>,
   ) {
     schema.properties
         ?.filter { (propName, _) -> propName != discriminatorPropName }
         ?.forEach { (propName, propSchema) ->
           val propertyName = config.namingStrategy.propertyName(propName)
           val isNullable = config.nullabilityStrategy.isNullable(propName, propSchema, schema.required?.toSet() ?: emptySet())
-          val kotlinType = typeResolver.resolveType(propName, propSchema, isNullable, emptyMap())
+          val kotlinType = typeResolver.resolveType(propName, propSchema, isNullable, emptyMap(), allImplementedInterfaces)
           val propBuilder = PropertySpec.builder(propertyName, kotlinType).addModifiers(KModifier.ABSTRACT)
           if (!propSchema.enum.isNullOrEmpty()) {
             val values = propSchema.enum.joinToString(", ")

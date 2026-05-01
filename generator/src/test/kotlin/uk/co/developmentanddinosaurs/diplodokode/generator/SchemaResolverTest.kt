@@ -414,6 +414,140 @@ class SchemaResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a chain of allOf references (A -> B -> C)") {
+    val schemas = mapOf(
+        "Base" to Schema(
+            type = "object",
+            properties = mapOf("id" to Schema(type = "string")),
+            required = listOf("id"),
+        ),
+        "Middle" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Base"),
+                Schema(type = "object", properties = mapOf("name" to Schema(type = "string")), required = listOf("name")),
+            ),
+        ),
+        "Leaf" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Middle"),
+                Schema(type = "object", properties = mapOf("armLength" to Schema(type = "number"))),
+            ),
+        ),
+    )
+
+    When("the resolver flattens Leaf") {
+      val resolved = resolver.resolve(schemas)
+      val leaf = resolved.schemas["Leaf"].shouldNotBeNull()
+
+      Then("it includes properties from every level of the chain") {
+        leaf.properties?.keys shouldContainExactlyInAnyOrder setOf("id", "name", "armLength")
+      }
+
+      Then("it preserves required entries from every level") {
+        leaf.required shouldContainExactlyInAnyOrder listOf("id", "name")
+      }
+    }
+  }
+
+  Given("a diamond allOf (A -> B,C; B -> D; C -> D with its own allOf)") {
+    val schemas = mapOf(
+        "Root" to Schema(
+            type = "object",
+            properties = mapOf("rootProp" to Schema(type = "string")),
+        ),
+        "Shared" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Root"),
+                Schema(type = "object", properties = mapOf("sharedProp" to Schema(type = "string"))),
+            ),
+        ),
+        "LeftBranch" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Shared"),
+                Schema(type = "object", properties = mapOf("leftProp" to Schema(type = "string"))),
+            ),
+        ),
+        "RightBranch" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/Shared"),
+                Schema(type = "object", properties = mapOf("rightProp" to Schema(type = "string"))),
+            ),
+        ),
+        "Diamond" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/LeftBranch"),
+                Schema(ref = "#/components/schemas/RightBranch"),
+            ),
+        ),
+    )
+
+    When("the resolver flattens Diamond") {
+      val resolved = resolver.resolve(schemas)
+      val diamond = resolved.schemas["Diamond"].shouldNotBeNull()
+
+      Then("all ancestor properties are merged via both branches, including transitively") {
+        diamond.properties?.keys shouldContainExactlyInAnyOrder setOf("rootProp", "sharedProp", "leftProp", "rightProp")
+      }
+    }
+  }
+
+  Given("a cyclic allOf (A -> B -> A)") {
+    val schemas = mapOf(
+        "A" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/B"),
+                Schema(type = "object", properties = mapOf("aProp" to Schema(type = "string"))),
+            ),
+        ),
+        "B" to Schema(
+            allOf = listOf(
+                Schema(ref = "#/components/schemas/A"),
+                Schema(type = "object", properties = mapOf("bProp" to Schema(type = "string"))),
+            ),
+        ),
+    )
+
+    When("the resolver flattens A") {
+      val resolved = resolver.resolve(schemas)
+      val a = resolved.schemas["A"].shouldNotBeNull()
+
+      Then("recursion terminates and both non-cyclic properties are merged") {
+        a.properties?.keys shouldContainExactlyInAnyOrder setOf("aProp", "bProp")
+      }
+    }
+  }
+
+  Given("a discriminator with no mapping and no variant enum (OpenAPI 4.8.25 fallback)") {
+    val schemas = mapOf(
+        "Tyrannosaur" to Schema(
+            type = "object",
+            properties = mapOf("type" to Schema(type = "string")),
+        ),
+        "Triceratops" to Schema(
+            type = "object",
+            properties = mapOf("type" to Schema(type = "string")),
+        ),
+        "Dinosaur" to Schema(
+            oneOf = listOf(
+                Schema(ref = "#/components/schemas/Tyrannosaur"),
+                Schema(ref = "#/components/schemas/Triceratops"),
+            ),
+            discriminator = Discriminator("type"),
+        ),
+    )
+
+    When("the resolver processes the schemas") {
+      val resolved = resolver.resolve(schemas)
+
+      Then("the raw discriminator value is the schema name with case preserved") {
+        val overrides = resolved.discriminatorOverrides["Tyrannosaur"].shouldNotBeNull()
+        overrides.single().rawValue shouldBe "Tyrannosaur"
+        val otherOverrides = resolved.discriminatorOverrides["Triceratops"].shouldNotBeNull()
+        otherOverrides.single().rawValue shouldBe "Triceratops"
+      }
+    }
+  }
+
   Given("a schema with oneOf inline variants") {
     val schemas = mapOf(
         "Dinosaur" to Schema(

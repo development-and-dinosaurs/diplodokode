@@ -1,6 +1,7 @@
 package uk.co.developmentanddinosaurs.diplodokode.generator
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalProperties
@@ -403,7 +404,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
       }
 
       Then("uuid format adds OptIn annotation to the file") {
-        code shouldContain "@file:OptIn(ExperimentalUuidApi::class)"
+        code shouldContain "@file:OptIn"
+        code shouldContain "ExperimentalUuidApi::class"
       }
     }
   }
@@ -593,9 +595,53 @@ class KotlinClassGeneratorTest : BehaviorSpec({
     When("the generator produces a data class") {
       val code = kmpGenerator.generateFromSchema("Tyrannosaur", schema).toString()
 
-      Then("it should use kotlinx.datetime.Instant") {
-        code shouldContain "kotlinx.datetime.Instant"
+      Then("it should use kotlin.time.Instant") {
+        code shouldContain "kotlin.time.Instant"
+        code shouldNotContain "kotlinx.datetime.Instant"
         code shouldNotContain "java.time"
+      }
+
+      Then("a file-level @OptIn(ExperimentalTime::class) is emitted so consumers on Kotlin 2.1.x compile cleanly") {
+        code shouldContain "@file:OptIn(ExperimentalTime::class)"
+      }
+    }
+  }
+
+  Given("a schema with both a date-time and a uuid property and the KMP type mapping strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt", "id"),
+      properties = mapOf(
+        "discoveredAt" to Schema(type = "string", format = "date-time"),
+        "id"          to Schema(type = "string", format = "uuid"),
+      ),
+    )
+    val kmpGenerator = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = KotlinMultiplatformTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = kmpGenerator.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("a single @file:OptIn carries both opt-in markers, not two separate annotations") {
+        code shouldContain "ExperimentalUuidApi::class"
+        code shouldContain "ExperimentalTime::class"
+        code.split("@file:OptIn").size shouldBe 2  // exactly one @file:OptIn block
+      }
+    }
+  }
+
+  Given("a schema with a date-time property under the Java strategy") {
+    val schema = Schema(
+      type = "object",
+      required = listOf("discoveredAt"),
+      properties = mapOf("discoveredAt" to Schema(type = "string", format = "date-time")),
+    )
+    val javaGen = KotlinClassGenerator(GeneratorConfig(typeMappingStrategy = JavaTypeMappingStrategy()))
+
+    When("the generator produces a data class") {
+      val code = javaGen.generateFromSchema("Tyrannosaur", schema).toString()
+
+      Then("no ExperimentalTime opt-in is emitted because java.time.Instant doesn't need one") {
+        code shouldNotContain "ExperimentalTime"
       }
     }
   }
@@ -836,8 +882,8 @@ class KotlinClassGeneratorTest : BehaviorSpec({
         code shouldContain "@Serializable"
       }
 
-      Then("no @JsonClassDiscriminator annotation is present") {
-        code shouldNotContain "JsonClassDiscriminator"
+      Then("@JsonClassDiscriminator annotation is present with the property name") {
+        code shouldContain """@JsonClassDiscriminator("type")"""
       }
 
       Then("no nested Type enum is generated") {
@@ -1147,9 +1193,14 @@ class KotlinClassGeneratorTest : BehaviorSpec({
   }
 
   Given("a schema whose only property is the discriminator, with ANNOTATION strategy and no discriminatorAnnotation") {
+    val strategyWithoutDiscriminatorAnnotation = object : SerializationStrategy {
+      override val classAnnotation = com.squareup.kotlinpoet.ClassName("com.example", "Serializable")
+      override fun enumConstantAnnotation(rawValue: String) = null
+      override fun propertyAnnotation(specName: String) = null
+    }
     val annotationGenerator = KotlinClassGenerator(
         GeneratorConfig(
-            serialisationStrategy = KotlinxSerialisationStrategy,
+            serialisationStrategy = strategyWithoutDiscriminatorAnnotation,
             polymorphismStrategy = PolymorphismStrategy.ANNOTATION,
         )
     )

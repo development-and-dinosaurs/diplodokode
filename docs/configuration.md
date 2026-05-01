@@ -143,7 +143,7 @@ Controls how OpenAPI types and formats are mapped to Kotlin types.
 ```kotlin
 diplodokode {
     typeMappings {
-        useMultiplatform()  // default — kotlinx.datetime.*, kotlin.uuid.Uuid
+        useMultiplatform()  // default — kotlin.time.Instant, kotlinx.datetime.LocalDate/LocalTime, kotlin.uuid.Uuid
         // useJava()        // java.time.*, java.util.UUID, java.net.URI
     }
 }

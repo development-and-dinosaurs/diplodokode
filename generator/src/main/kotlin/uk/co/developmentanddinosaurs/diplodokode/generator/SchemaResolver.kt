@@ -27,7 +27,7 @@ data class ResolvedSpec(
 class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
 
   fun resolve(schemas: Map<String, Schema>): ResolvedSpec {
-    val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, mutableSetOf()) }
+    val flatSchemas = schemas.mapValues { (_, schema) -> flattenAllOf(schema, schemas, emptySet()) }
     val (interfaceMap, enumMap, overrideMap) = buildDiscriminatorMaps(schemas, flatSchemas)
     val interfacePropertyNames = buildInterfacePropertyNames(schemas, interfaceMap)
     val primitiveUnionSchemas = collectPrimitiveUnionSchemas(flatSchemas)
@@ -37,18 +37,20 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
   private fun collectPrimitiveUnionSchemas(schemas: Map<String, Schema>): Map<String, Schema> {
     val result = mutableMapOf<String, Schema>()
     schemas.values.forEach { schema ->
-      schema.properties?.values?.forEach { propSchema ->
-        val oneOf = propSchema.oneOf ?: return@forEach
-        if (isPrimitiveUnion(oneOf)) {
-          val name = primitiveUnionName(oneOf, config.typeMappingStrategy)
-          result[name] = Schema(oneOf = oneOf)
-        }
-      }
+      schema.properties?.values?.forEach { propSchema -> collectPrimitiveUnionsIn(propSchema, result) }
     }
     return result
   }
 
-  private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: MutableSet<String>): Schema {
+  private fun collectPrimitiveUnionsIn(schema: Schema, result: MutableMap<String, Schema>) {
+    schema.oneOf?.takeIf { isPrimitiveUnion(it) }?.let { oneOf ->
+      val name = primitiveUnionName(oneOf, config.typeMappingStrategy)
+      result[name] = Schema(oneOf = oneOf)
+    }
+    schema.items?.let { collectPrimitiveUnionsIn(it, result) }
+  }
+
+  private fun flattenAllOf(schema: Schema, allSchemas: Map<String, Schema>, visited: Set<String>): Schema {
     if (schema.allOf.isNullOrEmpty()) return schema
 
     val mergedProperties = mutableMapOf<String, Schema>()
@@ -58,17 +60,18 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
     schema.required?.let { mergedRequired.addAll(it) }
 
     schema.allOf.forEach { subSchema ->
-      val resolved =
+      val (resolved, branchVisited) =
           if (subSchema.ref != null) {
-            val refName = subSchema.ref.substringAfterLast("/")
+            val refName = subSchema.ref.let(RefUtil::schemaNameFromRef)
             if (refName in visited) return@forEach
-            visited.add(refName)
-            allSchemas[refName]
+            allSchemas[refName] to (visited + refName)
           } else {
-            subSchema
+            subSchema to visited
           }
-      resolved?.properties?.let { mergedProperties.putAll(it) }
-      resolved?.required?.let { mergedRequired.addAll(it) }
+      if (resolved == null) return@forEach
+      val flattened = flattenAllOf(resolved, allSchemas, branchVisited)
+      flattened.properties?.let { mergedProperties.putAll(it) }
+      flattened.required?.let { mergedRequired.addAll(it) }
     }
 
     return Schema(
@@ -89,7 +92,7 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
 
     rawSchemas.forEach { (interfaceName, schema) ->
       val variants = schema.oneOf ?: schema.anyOf ?: return@forEach
-      val refVariants = variants.mapNotNull { it.ref?.substringAfterLast("/") }
+      val refVariants = variants.mapNotNull { it.ref?.let(RefUtil::schemaNameFromRef) }
 
       refVariants.forEach { variantName ->
         interfaceMap.getOrPut(variantName) { mutableListOf() }.add(interfaceName)
@@ -150,9 +153,9 @@ class SchemaResolver(private val config: GeneratorConfig = GeneratorConfig()) {
       }
 
   private fun discriminatorValueFor(variantName: String, discriminator: Discriminator, variantSchema: Schema): String {
-    discriminator.mapping?.entries?.find { (_, ref) -> ref.substringAfterLast("/") == variantName }
+    discriminator.mapping?.entries?.find { (_, ref) -> ref.let(RefUtil::schemaNameFromRef) == variantName }
         ?.key?.let { return it }
     variantSchema.properties?.get(discriminator.propertyName)?.enum?.firstOrNull()?.let { return it }
-    return variantName.lowercase()
+    return variantName
   }
 }

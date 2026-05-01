@@ -17,6 +17,10 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.StringOrDoub
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.TagValue
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Tyrannosaur
 import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.sauropodModule
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.theropodModule
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Theropod
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Velociraptor
+import uk.co.developmentanddinosaurs.diplodokode.generator.fixtures.Allosaurus
 import java.io.File
 
 /**
@@ -153,6 +157,12 @@ class SerialisationIntegrationTest : BehaviorSpec({
             code shouldContain "@Serializable"
         }
 
+        Then("the sealed interface is annotated with @JsonClassDiscriminator for the property name") {
+            val code = generatedFiles.find { it.name == "Sauropod" }!!.toString()
+            code shouldContain """@JsonClassDiscriminator("type")"""
+            code shouldContain "ExperimentalSerializationApi"
+        }
+
         Then("a DiplodokodeModule file is generated registering the sealed hierarchy") {
             val moduleCode = generatedFiles.find { it.name == "DiplodokodeModule" }!!.toString()
             moduleCode shouldContain "diplodokodeModule"
@@ -204,6 +214,46 @@ class SerialisationIntegrationTest : BehaviorSpec({
 
             Then("the correct variant type is produced") {
                 decoded shouldBe Brachiosaurus(foreLegLength = 3.2)
+            }
+        }
+    }
+
+    Given("an OpenAPI spec with a non-type discriminator property (kind), with serialisation enabled") {
+        val spec = File("src/test/resources/kind-discriminator-api.yaml")
+        val generatedFiles = generator.generateFromSpec(spec)
+        val theropodJson = Json { explicitNulls = false; serializersModule = theropodModule }
+
+        Then("the sealed interface is annotated with @JsonClassDiscriminator(\"kind\")") {
+            val code = generatedFiles.find { it.name == "Theropod" }!!.toString()
+            code shouldContain """@JsonClassDiscriminator("kind")"""
+        }
+
+        Then("variant data classes do not contain the kind discriminator property") {
+            val velociraptorCode = generatedFiles.find { it.name == "Velociraptor" }!!.toString()
+            velociraptorCode shouldNotContain "val kind:"
+            velociraptorCode shouldNotContain "override val kind"
+        }
+
+        When("a variant is encoded as the sealed interface type") {
+            val velociraptor = Velociraptor(packSize = 6)
+            val encoded = theropodJson.encodeToString(Theropod.serializer(), velociraptor)
+
+            Then("the kind discriminator field appears in the JSON with the spec value") {
+                encoded shouldContain """"kind":"velociraptor""""
+            }
+
+            Then("the decoded instance is equal to the original") {
+                val decoded = theropodJson.decodeFromString(Theropod.serializer(), encoded)
+                decoded shouldBe velociraptor
+            }
+        }
+
+        When("a JSON payload with the kind discriminator field is decoded") {
+            val specJson = """{"kind":"allosaurus","territorySize":42.0}"""
+            val decoded = theropodJson.decodeFromString(Theropod.serializer(), specJson)
+
+            Then("the correct variant type is produced") {
+                decoded shouldBe Allosaurus(territorySize = 42.0)
             }
         }
     }

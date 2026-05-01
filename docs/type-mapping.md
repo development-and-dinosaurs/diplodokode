@@ -58,7 +58,7 @@ All types are safe for use in Kotlin Multiplatform projects.
 
 | Format            | Kotlin type                  | Notes                                          |
 |-------------------|------------------------------|------------------------------------------------|
-| `date-time`       | `kotlinx.datetime.Instant`   | Requires `kotlinx-datetime`                    |
+| `date-time`       | `kotlin.time.Instant`        | Built into Kotlin stdlib (2.1+)                |
 | `date`            | `kotlinx.datetime.LocalDate` | Requires `kotlinx-datetime`                    |
 | `time`            | `kotlinx.datetime.LocalTime` | Requires `kotlinx-datetime`                    |
 | `duration`        | `kotlin.time.Duration`       | Built into Kotlin stdlib                       |
@@ -186,7 +186,7 @@ public enum class Diet {
 
 ### Inline enum properties
 
-An inline enum on a data class property generates a nested `enum class` in the same file.
+An inline enum on a data class property generates an `enum class` **nested inside the owning data class**. The enum is named from the property (e.g. `diet` → `Diet`), and the nesting means two unrelated schemas can each declare an inline `diet` (or `style`, etc.) without their generated enums colliding.
 
 ```yaml
 Dinosaur:
@@ -199,14 +199,16 @@ Dinosaur:
 
 ```kotlin
 public data class Dinosaur(
-    val diet: DinosaurDiet?,
-)
-
-public enum class DinosaurDiet {
-    CARNIVORE,
-    HERBIVORE,
+    val diet: Diet?,
+) {
+    public enum class Diet {
+        CARNIVORE,
+        HERBIVORE,
+    }
 }
 ```
+
+Reference from outside the class as `Dinosaur.Diet.CARNIVORE`. To share an enum across multiple schemas, declare it as a top-level enum schema (above) and `$ref` it from each property — that produces a single shared top-level `enum class` instead.
 
 ---
 

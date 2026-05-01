@@ -23,6 +23,7 @@ class DiplodokodePlugin : Plugin<Project> {
       task.serialisationLibrary.set(extension.serialisationConfig.library)
       task.modulePackage.set(extension.serialisationConfig.modulePackage)
       task.moduleName.set(extension.serialisationConfig.moduleName)
+      task.schemaOverrides.set(extension.schemaOverridesMap)
     }
   }
 }

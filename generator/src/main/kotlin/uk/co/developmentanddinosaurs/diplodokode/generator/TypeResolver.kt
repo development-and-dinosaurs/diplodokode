@@ -9,6 +9,7 @@ import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.AdditionalPro
 import uk.co.developmentanddinosaurs.diplodokode.generator.openapi.Schema
 
 private val KOTLIN_UUID = ClassName("kotlin.uuid", "Uuid")
+private val KOTLIN_TIME_INSTANT = ClassName("kotlin.time", "Instant")
 
 internal class TypeResolver(private val config: GeneratorConfig) {
 
@@ -17,23 +18,43 @@ internal class TypeResolver(private val config: GeneratorConfig) {
       propValue: Schema,
       isNullable: Boolean,
       enumClassNames: Map<String, ClassName>,
+      interfacesByVariant: Map<String, List<String>> = emptyMap(),
   ): TypeName {
     val baseType =
         when {
-          propValue.ref != null -> ClassName(config.packageName, config.namingStrategy.className(propValue.ref.substringAfterLast("/")))
+          propValue.ref != null -> resolveRef(propValue.ref)
           propValue.type == "array" -> {
-            val elementType = propValue.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+            val elementType = propValue.items?.let { resolveItemType(it, interfacesByVariant) } ?: Any::class.asTypeName()
             List::class.asTypeName().parameterizedBy(elementType)
           }
           propValue.additionalProperties != null && propValue.additionalProperties !is AdditionalProperties.Forbidden -> resolveMapType(propValue.additionalProperties)
-          propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) ->
-              ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(propValue.oneOf, config.typeMappingStrategy)))
+          propValue.oneOf != null && isPrimitiveUnion(propValue.oneOf) -> primitiveUnionClassName(propValue.oneOf)
+          !propValue.allOf.isNullOrEmpty() -> resolveAllOfType(propValue.allOf)
+          !propValue.oneOf.isNullOrEmpty() -> resolveUnionType(propValue.oneOf, interfacesByVariant)
+          !propValue.anyOf.isNullOrEmpty() -> resolveUnionType(propValue.anyOf, interfacesByVariant)
           else -> enumClassNames[propName] ?: mapTypeToKotlin(propValue.type, propValue.format)
         }
     return if (isNullable) baseType.copy(nullable = true) else baseType
   }
 
-  private fun resolveMapType(additionalProperties: AdditionalProperties): TypeName {
+  private fun resolveAllOfType(allOf: List<Schema>): TypeName {
+    val singleRef = allOf.singleOrNull()?.ref
+    return if (singleRef != null) resolveRef(singleRef) else Any::class.asTypeName()
+  }
+
+  private fun resolveUnionType(variants: List<Schema>, interfacesByVariant: Map<String, List<String>>): TypeName {
+    val refs = variants.map { it.ref?.let(RefUtil::schemaNameFromRef) }
+    if (refs.any { it == null }) return Any::class.asTypeName()
+    val refNames = refs.filterNotNull()
+    if (refNames.isEmpty()) return Any::class.asTypeName()
+    val commonInterfaces = refNames
+        .map { interfacesByVariant[it]?.toSet() ?: emptySet() }
+        .reduce { a, b -> a intersect b }
+    val commonInterface = commonInterfaces.minOrNull() ?: return Any::class.asTypeName()
+    return resolveSchemaName(commonInterface)
+  }
+
+  fun resolveMapType(additionalProperties: AdditionalProperties): TypeName {
     val valueType = when (additionalProperties) {
       is AdditionalProperties.Allowed -> Any::class.asTypeName()
       is AdditionalProperties.Forbidden -> Any::class.asTypeName()
@@ -42,23 +63,41 @@ internal class TypeResolver(private val config: GeneratorConfig) {
     return Map::class.asTypeName().parameterizedBy(String::class.asTypeName(), valueType)
   }
 
-  fun resolveItemType(items: Schema): TypeName =
+  fun resolveItemType(items: Schema, interfacesByVariant: Map<String, List<String>> = emptyMap()): TypeName =
       when {
-        items.ref != null -> ClassName(config.packageName, config.namingStrategy.className(items.ref.substringAfterLast("/")))
+        items.ref != null -> resolveRef(items.ref)
         items.type == "array" -> {
-          val elementType = items.items?.let { resolveItemType(it) } ?: Any::class.asTypeName()
+          val elementType = items.items?.let { resolveItemType(it, interfacesByVariant) } ?: Any::class.asTypeName()
           List::class.asTypeName().parameterizedBy(elementType)
         }
+        !items.allOf.isNullOrEmpty() -> resolveAllOfType(items.allOf)
+        !items.oneOf.isNullOrEmpty() && isPrimitiveUnion(items.oneOf) -> primitiveUnionClassName(items.oneOf)
+        !items.oneOf.isNullOrEmpty() -> resolveUnionType(items.oneOf, interfacesByVariant)
+        !items.anyOf.isNullOrEmpty() -> resolveUnionType(items.anyOf, interfacesByVariant)
         else -> mapTypeToKotlin(items.type, items.format)
       }
+
+  private fun primitiveUnionClassName(oneOf: List<Schema>): ClassName =
+      ClassName(config.packageName, config.namingStrategy.className(primitiveUnionName(oneOf, config.typeMappingStrategy)))
+
+  private fun resolveRef(ref: String): ClassName = resolveSchemaName(RefUtil.schemaNameFromRef(ref))
+
+  /** Resolves a schema name to its [ClassName], honouring [GeneratorConfig.schemaOverrides]. */
+  fun resolveSchemaName(schemaName: String): ClassName =
+      config.schemaOverrides[schemaName]
+          ?: ClassName(config.packageName, config.namingStrategy.className(schemaName))
 
   fun mapTypeToKotlin(openApiType: String?, format: String? = null): TypeName =
       openApiType?.let { config.typeMappingStrategy.resolve(it, format) } ?: String::class.asTypeName()
 
-  fun containsKotlinUuid(type: TypeName): Boolean =
+  fun containsKotlinUuid(type: TypeName): Boolean = containsClassName(type, KOTLIN_UUID)
+
+  fun containsKotlinTimeInstant(type: TypeName): Boolean = containsClassName(type, KOTLIN_TIME_INSTANT)
+
+  private fun containsClassName(type: TypeName, target: ClassName): Boolean =
       when {
-        type.copy(nullable = false) == KOTLIN_UUID -> true
-        type is ParameterizedTypeName -> type.typeArguments.any { containsKotlinUuid(it) }
+        type.copy(nullable = false) == target -> true
+        type is ParameterizedTypeName -> type.typeArguments.any { containsClassName(it, target) }
         else -> false
       }
 

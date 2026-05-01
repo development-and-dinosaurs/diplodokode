@@ -69,6 +69,9 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
   @get:Input
   abstract val moduleName: Property<String>
 
+  @get:Input
+  abstract val schemaOverrides: MapProperty<String, String>
+
   @TaskAction
   fun generate() {
     val config = GeneratorConfig(
@@ -79,6 +82,7 @@ abstract class GenerateDiplodokodeTask : DefaultTask() {
         serialisationStrategy = buildSerialisationStrategy(),
         modulePackage = if (modulePackage.isPresent) modulePackage.get() else null,
         moduleName = moduleName.get(),
+        schemaOverrides = schemaOverrides.get().mapValues { (_, fqcn) -> ClassName.bestGuess(fqcn) },
     )
     val generator = DiplodokodeGenerator(config)
     val specFile = inputFile.get().asFile
