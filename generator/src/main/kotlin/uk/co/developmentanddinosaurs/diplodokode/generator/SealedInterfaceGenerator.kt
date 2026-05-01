@@ -59,11 +59,13 @@ internal class SealedInterfaceGenerator(
       }
     }
 
+    val builtInterface = interfaceBuilder.build()
     val fileBuilder = FileSpec.builder(config.packageName, interfaceName)
     if (useSerialisedDiscriminator) {
       config.serialisationStrategy?.discriminatorFileAnnotation()?.let { fileBuilder.addAnnotation(it) }
     }
-    return fileBuilder.addType(interfaceBuilder.build()).build()
+    fileOptInAnnotation(typeResolver, builtInterface.propertySpecs.map { it.type })?.let { fileBuilder.addAnnotation(it) }
+    return fileBuilder.addType(builtInterface).build()
   }
 
   private fun variantKdoc(keyword: String) =

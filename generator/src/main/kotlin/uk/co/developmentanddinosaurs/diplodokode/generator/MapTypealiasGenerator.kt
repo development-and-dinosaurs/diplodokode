@@ -27,8 +27,8 @@ internal class MapTypealiasGenerator(
       )
     }
 
-    return FileSpec.builder(config.packageName, className)
-        .addTypeAlias(aliasBuilder.build())
-        .build()
+    val fileBuilder = FileSpec.builder(config.packageName, className)
+    fileOptInAnnotation(typeResolver, listOf(mapType))?.let { fileBuilder.addAnnotation(it) }
+    return fileBuilder.addTypeAlias(aliasBuilder.build()).build()
   }
 }

@@ -87,18 +87,7 @@ internal class DataClassGenerator(
     }
 
     val allTypes = constructorParams.map { it.type } + properties.map { it.type }
-    val optInMarkers = buildList {
-      if (allTypes.any { typeResolver.containsKotlinUuid(it) }) add(ClassName(KOTLIN_UUID, "ExperimentalUuidApi"))
-      if (allTypes.any { typeResolver.containsKotlinTimeInstant(it) }) add(ClassName(KOTLIN_TIME, "ExperimentalTime"))
-    }
-    if (optInMarkers.isNotEmpty()) {
-      fileBuilder.addAnnotation(
-          AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
-              .apply { optInMarkers.forEach { addMember("%T::class", it) } }
-              .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
-              .build()
-      )
-    }
+    fileOptInAnnotation(typeResolver, allTypes)?.let { fileBuilder.addAnnotation(it) }
 
     val hasForbiddenAdditionalProperties = schema.additionalProperties is AdditionalProperties.Forbidden
 
