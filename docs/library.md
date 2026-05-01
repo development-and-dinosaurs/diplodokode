@@ -119,7 +119,7 @@ Controls how OpenAPI types and formats map to Kotlin `ClassName`s.
 
 | Class | Behaviour |
 |---|---|
-| `KotlinMultiplatformTypeMappingStrategy()` | KMP-safe types (`kotlinx.datetime.*`, `kotlin.uuid.Uuid`) |
+| `KotlinMultiplatformTypeMappingStrategy()` | KMP-safe types (`kotlin.time.Instant`, `kotlinx.datetime.LocalDate`/`LocalTime`, `kotlin.uuid.Uuid`) |
 | `JavaTypeMappingStrategy()` | JVM types (`java.time.*`, `java.util.UUID`) |
 
 Both classes support `withOverrides(formatOverrides, baseOverrides)` to apply per-entry overrides on top of the preset:

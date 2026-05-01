@@ -58,7 +58,7 @@ All types are safe for use in Kotlin Multiplatform projects.
 
 | Format            | Kotlin type                  | Notes                                          |
 |-------------------|------------------------------|------------------------------------------------|
-| `date-time`       | `kotlinx.datetime.Instant`   | Requires `kotlinx-datetime`                    |
+| `date-time`       | `kotlin.time.Instant`        | Built into Kotlin stdlib (2.1+)                |
 | `date`            | `kotlinx.datetime.LocalDate` | Requires `kotlinx-datetime`                    |
 | `time`            | `kotlinx.datetime.LocalTime` | Requires `kotlinx-datetime`                    |
 | `duration`        | `kotlin.time.Duration`       | Built into Kotlin stdlib                       |

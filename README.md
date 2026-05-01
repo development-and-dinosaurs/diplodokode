@@ -129,7 +129,7 @@ Required fields are non-nullable. Optional fields are nullable. `nullable: true`
 
 | OpenAPI format    | Kotlin type                  |
 |-------------------|------------------------------|
-| `date-time`       | `kotlinx.datetime.Instant`   |
+| `date-time`       | `kotlin.time.Instant`        |
 | `date`            | `kotlinx.datetime.LocalDate` |
 | `time`            | `kotlinx.datetime.LocalTime` |
 | `duration`        | `kotlin.time.Duration`       |
@@ -139,7 +139,7 @@ Required fields are non-nullable. Optional fields are nullable. `nullable: true`
 | `int64`           | `Long`                       |
 | `float`           | `Float`                      |
 
-To use Java types instead, or to override specific mappings, see [Type mappings](#type-mappings).
+`kotlin.time.Instant` and `kotlin.time.Duration` are stdlib (Kotlin 2.1+); `LocalDate`/`LocalTime` still come from `org.jetbrains.kotlinx:kotlinx-datetime`. To use Java types instead, or to override specific mappings, see [Type mappings](#type-mappings).
 
 ### Arrays
 
@@ -467,11 +467,11 @@ diplodokode {
 
 #### `useMultiplatform()` (default)
 
-Requires `org.jetbrains.kotlinx:kotlinx-datetime` on the classpath for date/time types.
+Requires Kotlin 2.1+ for `kotlin.time.Instant`. Requires `org.jetbrains.kotlinx:kotlinx-datetime` on the classpath if any property uses `format: date` or `format: time` (the `kotlinx.datetime.LocalDate`/`LocalTime` types).
 
 | Format            | Kotlin type                  |
 |-------------------|------------------------------|
-| `date-time`       | `kotlinx.datetime.Instant`   |
+| `date-time`       | `kotlin.time.Instant`        |
 | `date`            | `kotlinx.datetime.LocalDate` |
 | `time`            | `kotlinx.datetime.LocalTime` |
 | `duration`        | `kotlin.time.Duration`       |
