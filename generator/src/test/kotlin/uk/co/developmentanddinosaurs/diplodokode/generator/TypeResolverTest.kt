@@ -312,6 +312,24 @@ class TypeResolverTest : BehaviorSpec({
     }
   }
 
+  Given("a oneOf whose variants share more than one common interface") {
+    val interfacesByVariant = mapOf(
+        "Tyrannosaur" to listOf("ZZZApex", "AAALandDweller", "MMMCarnivore"),
+        "Allosaurus"  to listOf("MMMCarnivore", "AAALandDweller", "ZZZApex"),
+    )
+    val schema = Schema(oneOf = listOf(
+        Schema(ref = "#/components/schemas/Tyrannosaur"),
+        Schema(ref = "#/components/schemas/Allosaurus"),
+    ))
+
+    Then("the resolved interface is the alphabetically-first common one, deterministically across runs") {
+      repeat(20) {
+        val type = resolver.resolveType("threat", schema, isNullable = false, enumClassNames = emptyMap(), interfacesByVariant = interfacesByVariant)
+        type.toString() shouldBe "uk.co.developmentanddinosaurs.diplodokode.generated.AAALandDweller"
+      }
+    }
+  }
+
   Given("an array whose items are a primitive oneOf union") {
     val schema = Schema(type = "array", items = Schema(oneOf = listOf(
         Schema(type = "string"),

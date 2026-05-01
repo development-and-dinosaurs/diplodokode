@@ -49,8 +49,8 @@ internal class TypeResolver(private val config: GeneratorConfig) {
     val commonInterfaces = refNames
         .map { interfacesByVariant[it]?.toSet() ?: emptySet() }
         .reduce { a, b -> a intersect b }
-    val commonInterface = commonInterfaces.firstOrNull() ?: return Any::class.asTypeName()
-    return ClassName(config.packageName, config.namingStrategy.className(commonInterface))
+    val commonInterface = commonInterfaces.minOrNull() ?: return Any::class.asTypeName()
+    return resolveSchemaName(commonInterface)
   }
 
   fun resolveMapType(additionalProperties: AdditionalProperties): TypeName {
