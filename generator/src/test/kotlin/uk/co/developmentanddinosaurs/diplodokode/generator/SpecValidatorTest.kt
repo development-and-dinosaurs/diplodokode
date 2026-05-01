@@ -383,4 +383,111 @@ class SpecValidatorTest : BehaviorSpec({
       }
     }
   }
+
+  Given("a property whose oneOf variants share more than one common interface") {
+    val schemas = mapOf(
+      "LandDweller" to Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Allosaurus"),
+      )),
+      "Carnivore" to Schema(oneOf = listOf(
+          Schema(ref = "#/components/schemas/Tyrannosaur"),
+          Schema(ref = "#/components/schemas/Allosaurus"),
+      )),
+      "Tyrannosaur" to Schema(type = "object"),
+      "Allosaurus" to Schema(type = "object"),
+      "Encounter" to Schema(
+          type = "object",
+          properties = mapOf(
+              "threat" to Schema(oneOf = listOf(
+                  Schema(ref = "#/components/schemas/Tyrannosaur"),
+                  Schema(ref = "#/components/schemas/Allosaurus"),
+              )),
+          ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("a warning is emitted naming the picked interface and the alternative") {
+        val warning = diagnostics.single { it.schemaName == "Encounter" && it.location == "properties.threat" }
+        warning.severity shouldBe DiagnosticSeverity.WARNING
+        warning.message shouldContain "Carnivore"
+        warning.message shouldContain "LandDweller"
+        warning.message shouldContain "alphabetically first"
+      }
+    }
+  }
+
+  Given("a property with an inline primitive oneOf used as array items") {
+    val schemas = mapOf(
+      "Dinosaur" to Schema(
+          type = "object",
+          properties = mapOf(
+              "measurements" to Schema(
+                  type = "array",
+                  items = Schema(oneOf = listOf(
+                      Schema(type = "string"),
+                      Schema(type = "number"),
+                  )),
+              ),
+          ),
+      ),
+    )
+
+    When("the validator runs") {
+      val diagnostics = validator.validate(schemas)
+
+      Then("a warning is emitted suggesting the union be promoted to a top-level schema") {
+        val warning = diagnostics.single { it.location == "properties.measurements.items.oneOf" }
+        warning.severity shouldBe DiagnosticSeverity.WARNING
+        warning.message shouldContain "string"
+        warning.message shouldContain "number"
+        warning.message shouldContain "top-level"
+      }
+    }
+  }
+
+  Given("a polymorphic sealed-interface schema that the user has overridden via schemaOverrides") {
+    val schemas = mapOf(
+      "Dinosaur" to Schema(
+          oneOf = listOf(
+              Schema(ref = "#/components/schemas/Tyrannosaur"),
+              Schema(ref = "#/components/schemas/Triceratops"),
+          ),
+          discriminator = Discriminator(propertyName = "type"),
+      ),
+      "Tyrannosaur" to Schema(type = "object", properties = mapOf("type" to Schema(type = "string", enum = listOf("tyrannosaur")))),
+      "Triceratops" to Schema(type = "object", properties = mapOf("type" to Schema(type = "string", enum = listOf("triceratops")))),
+    )
+
+    When("the validator runs with Dinosaur in knownExternalNames") {
+      val diagnostics = validator.validate(schemas, knownExternalNames = setOf("Dinosaur"))
+
+      Then("a warning is emitted explaining the override must be a sealed interface and provide a nested Type enum") {
+        val warning = diagnostics.single { it.schemaName == "Dinosaur" && it.location == "oneOf" }
+        warning.severity shouldBe DiagnosticSeverity.WARNING
+        warning.message shouldContain "sealed"
+        warning.message shouldContain "Type"
+      }
+    }
+  }
+
+  Given("a non-polymorphic schema that the user has overridden") {
+    val schemas = mapOf(
+      "DinosaurDna" to Schema(
+          type = "object",
+          properties = mapOf("sequence" to Schema(type = "string")),
+      ),
+    )
+
+    When("the validator runs with DinosaurDna in knownExternalNames") {
+      val diagnostics = validator.validate(schemas, knownExternalNames = setOf("DinosaurDna"))
+
+      Then("no polymorphic-override warning is emitted because there is no sealed-interface contract to satisfy") {
+        diagnostics.filter { it.message.contains("sealed") }.shouldBeEmpty()
+      }
+    }
+  }
 })

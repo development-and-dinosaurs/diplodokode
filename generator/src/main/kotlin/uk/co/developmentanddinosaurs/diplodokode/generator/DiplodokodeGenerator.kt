@@ -42,8 +42,11 @@ class DiplodokodeGenerator(private val config: GeneratorConfig = GeneratorConfig
     val schemas = openApiSpec.components?.schemas ?: return GenerationResult.Success(emptyList())
 
     val allDiagnostics = validator.validate(schemas, config.schemaOverrides.keys)
-    // Suppress diagnostics for schemas the user has explicitly overridden — they won't be generated.
-    val diagnostics = allDiagnostics.filter { it.schemaName !in config.schemaOverrides }
+    // Suppress *errors* for overridden schemas (they won't be generated, so unresolvable refs etc. don't matter),
+    // but keep warnings — some warnings, like polymorphic-override risk, are specifically about the override interaction.
+    val diagnostics = allDiagnostics.filter {
+      it.schemaName !in config.schemaOverrides || it.severity != DiagnosticSeverity.ERROR
+    }
     val errors = diagnostics.filter { it.severity == DiagnosticSeverity.ERROR }
     val warnings = diagnostics.filter { it.severity == DiagnosticSeverity.WARNING }
 
